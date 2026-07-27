@@ -1,0 +1,452 @@
+# 🗄️ PRODUCTION DATABASE SCHEMA & PRISMA SPECIFICATION
+## System: My Room Ledger (PostgreSQL + Prisma ORM Engine)
+
+---
+
+## 1. ER Diagram & Relational Overview
+
+```
+                         +-------------------+
+                         |       USERS       | (SUPER_ADMIN, ADMIN, LANDLORD, TENANT)
+                         +---------+---------+
+                                   |
+              +--------------------+--------------------+
+              | (Admin -> Landlord)                     | (Landlord -> Buildings)
+              v                                         v
+   +--------------------+                     +-------------------+
+   |  ADMIN_AUDIT_LOGS  |                     |     BUILDINGS     |
+   +--------------------+                     +----+----+----+----+
+                                                   |    |    |
+                      +----------------------------+    |    +-------------------------+
+                      | (1:N)                           | (1:N)                        | (1:N)
+                      v                                 v                              v
+            +-------------------+             +-------------------+          +-------------------+
+            | BUILDING_EXPENSES |             |SUPPLIER_MASTER_BIL|          |      FLOORS       |
+            +-------------------+             +-------------------+          +----+----+----+----+
+                                                                                  |    |    |
+                                      +-------------------------------------------+    |    +--------------------+
+                                      | (1:N)                                          | (1:N)                   | (1:N)
+                                      v                                                v                         v
+                              +---------------+                               +------------------+     +-------------------+
+                              |     ROOMS     |                               | SHARED_BATHROOMS |     |  SHARED_TOILETS   |
+                              +-------+-------+                               +------------------+     +-------------------+
+                                      |
+                     +----------------+----------------+
+                     | (1:N)                           | (1:N)
+                     v                                 v
+             +---------------+               +-------------------+
+             |    TENANTS    |               | RENT_CYCLE_CONFIGS|
+             +-------+-------+               +---------+---------+
+                     |                                 |
+                     | (Snapshot)                      | (1:N)
+                     v                                 v
+             +---------------+               +-------------------+
+             |TENANCY_HISTORY|               |  BILLING_CYCLES   |
+             +---------------+               +----+----+---------+
+                                                  |    |
+                  +-------------------------------+    +-------------------------------+
+                  | (1:1)                                                              | (1:1)
+                  v                                                                    v
+     +-----------------------+                                            +-----------------------+
+     |   ROOM_RENT_LEDGERS   |                                            |  ELECTRICITY_LEDGERS  |
+     | (Independent Status)  |                                            | (Submeter Calculation)|
+     +-----------------------+                                            +-----------------------+
+```
+
+---
+
+## 2. Declarative Prisma Schema Definition (`schema.prisma`)
+
+```prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ENUM DEFINITIONS
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  LANDLORD
+  TENANT
+}
+
+enum OccupancyType {
+  SINGLE
+  DOUBLE
+  TRIPLE
+  DORMITORY
+}
+
+enum FacilityAccessType {
+  PRIVATE
+  SHARED
+}
+
+enum FacilityStatus {
+  FUNCTIONAL
+  UNDER_MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+enum TenantStatus {
+  ACTIVE
+  NOTICE_PERIOD
+  MOVED_OUT
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+}
+
+enum ExpenseCategory {
+  WATER_BILL
+  MAINTENANCE
+  REPAIRS
+  SECURITY
+  CLEANING
+  PROPERTY_TAX
+  MISCELLANEOUS
+}
+
+enum ComplaintCategory {
+  PLUMBING
+  ELECTRICAL
+  CLEANLINESS
+  NOISE
+  BILLING
+  OTHER
+}
+
+enum ComplaintSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+// MODEL DEFINITIONS
+model User {
+  id               BigInt      @id @default(autoincrement())
+  fullName         String      @map("full_name") @db.VarChar(120)
+  email            String      @unique @db.VarChar(150)
+  phoneNumber      String      @unique @map("phone_number") @db.VarChar(20)
+  passwordHash     String      @map("password_hash") @db.VarChar(255)
+  role             UserRole    @default(TENANT)
+  isSystemActive   Boolean     @default(true) @map("is_system_active")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  // Relationships
+  buildings        Building[]  @relation("LandlordBuildings")
+  tenantProfile    Tenant?
+  documentsUploaded DocumentMetadata[] @relation("UploadedDocuments")
+  complaints       Complaint[] @relation("TenantComplaints")
+
+  @@map("users")
+}
+
+model Building {
+  id              BigInt      @id @default(autoincrement())
+  landlordId      BigInt      @map("landlord_id")
+  name            String      @db.VarChar(150)
+  addressLine     String      @map("address_line") @db.Text
+  city            String      @db.VarChar(100)
+  state           String      @db.VarChar(100)
+  pincode         String      @db.VarChar(10)
+  totalFloors     Int         @map("total_floors")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  // Relationships
+  landlord        User        @relation("LandlordBuildings", fields: [landlordId], references: [id], onDelete: Cascade)
+  floors          Floor[]
+  expenses        BuildingExpense[]
+  supplierBills   SupplierMasterBill[]
+
+  @@index([landlordId])
+  @@map("buildings")
+}
+
+model Floor {
+  id              BigInt      @id @default(autoincrement())
+  buildingId      BigInt      @map("building_id")
+  floorNumber     Int         @map("floor_number") // 0 = Ground Floor
+  name            String      @db.VarChar(50)
+  createdAt       DateTime    @default(now()) @map("created_at")
+
+  // Relationships
+  building        Building    @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  rooms           Room[]
+  sharedBathrooms SharedBathroom[]
+  sharedToilets   SharedToilet[]
+
+  @@unique([buildingId, floorNumber])
+  @@index([buildingId])
+  @@map("floors")
+}
+
+model Room {
+  id              BigInt             @id @default(autoincrement())
+  floorId         BigInt             @map("floor_id")
+  roomNumber      String             @map("room_number") @db.VarChar(20) // e.g. Room 01, Room 11
+  occupancyType   OccupancyType      @default(SINGLE) @map("occupancy_type")
+  baseRentAmount  Decimal            @map("base_rent_amount") @db.Decimal(10, 2)
+  bathroomType    FacilityAccessType @default(SHARED) @map("bathroom_type")
+  toiletType      FacilityAccessType @default(SHARED) @map("toilet_type")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  // Relationships
+  floor           Floor              @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  tenants         Tenant[]
+  tenancyHistory  TenancyHistory[]
+  cycleConfigs    RentCycleConfig[]
+  billingCycles   BillingCycle[]
+
+  @@unique([floorId, roomNumber])
+  @@index([floorId])
+  @@map("rooms")
+}
+
+model SharedBathroom {
+  id              BigInt         @id @default(autoincrement())
+  floorId         BigInt         @map("floor_id")
+  bathNumber      String         @map("bath_number") @db.VarChar(20) // e.g. Bath 01, Bath 11
+  status          FacilityStatus @default(FUNCTIONAL)
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  floor           Floor          @relation(fields: [floorId], references: [id], onDelete: Cascade)
+
+  @@unique([floorId, bathNumber])
+  @@map("shared_bathrooms")
+}
+
+model SharedToilet {
+  id              BigInt         @id @default(autoincrement())
+  floorId         BigInt         @map("floor_id")
+  toiletNumber    String         @map("toilet_number") @db.VarChar(20) // e.g. Toilet 01, Toilet 11
+  status          FacilityStatus @default(FUNCTIONAL)
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  floor           Floor          @relation(fields: [floorId], references: [id], onDelete: Cascade)
+
+  @@unique([floorId, toiletNumber])
+  @@map("shared_toilets")
+}
+
+model Tenant {
+  id               BigInt       @id @default(autoincrement())
+  userId           BigInt       @unique @map("user_id")
+  currentRoomId    BigInt?      @map("current_room_id")
+  emergencyContact String?      @map("emergency_contact") @db.VarChar(20)
+  idProofType      String?      @map("id_proof_type") @db.VarChar(50)
+  idProofNumber    String?      @map("id_proof_number") @db.VarChar(100)
+  checkInDate      DateTime     @map("check_in_date") @db.Date
+  status           TenantStatus @default(ACTIVE)
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  // Relationships
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentRoom      Room?        @relation(fields: [currentRoomId], references: [id], onDelete: SetNull)
+  tenancyHistory   TenancyHistory[]
+  billingSnapshots BillingCycleTenantsSnapshot[]
+
+  @@index([currentRoomId])
+  @@map("tenants")
+}
+
+model TenancyHistory {
+  id            BigInt    @id @default(autoincrement())
+  tenantId      BigInt    @map("tenant_id")
+  roomId        BigInt    @map("room_id")
+  checkInDate   DateTime  @map("check_in_date") @db.Date
+  checkOutDate  DateTime? @map("check_out_date") @db.Date
+  moveOutReason String?   @map("move_out_reason") @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  room          Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([roomId])
+  @@map("tenancy_history")
+}
+
+model BuildingExpense {
+  id          BigInt          @id @default(autoincrement())
+  buildingId  BigInt          @map("building_id")
+  category    ExpenseCategory
+  title       String          @db.VarChar(200)
+  amount      Decimal         @db.Decimal(10, 2)
+  expenseDate DateTime        @map("expense_date") @db.Date
+  notes       String?         @db.Text
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  building    Building        @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@index([buildingId, expenseDate])
+  @@map("building_expenses")
+}
+
+model SupplierMasterBill {
+  id                 BigInt        @id @default(autoincrement())
+  buildingId         BigInt        @map("building_id")
+  supplierName       String        @map("supplier_name") @db.VarChar(100) // e.g. UPCL
+  billCycleStart     DateTime      @map("bill_cycle_start") @db.Date
+  billCycleEnd       DateTime      @map("bill_cycle_end") @db.Date
+  masterBillAmount   Decimal       @map("master_bill_amount") @db.Decimal(10, 2)
+  amountPaid         Decimal       @default(0.00) @map("amount_paid") @db.Decimal(10, 2)
+  status             PaymentStatus @default(UNPAID)
+  dueDate            DateTime      @map("due_date") @db.Date
+  paidDate           DateTime?     @map("paid_date")
+  digitalBillDocId   BigInt?       @map("digital_bill_doc_id")
+  createdAt          DateTime      @default(now()) @map("created_at")
+
+  building           Building      @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  digitalBillDoc     DocumentMetadata? @relation(fields: [digitalBillDocId], references: [id])
+
+  @@index([buildingId, status])
+  @@map("supplier_master_bills")
+}
+
+model RentCycleConfig {
+  id             BigInt    @id @default(autoincrement())
+  roomId         BigInt    @map("room_id")
+  cycleStartDay  Int       @map("cycle_start_day") // 1..31
+  activeFromDate DateTime  @map("active_from_date") @db.Date
+  activeToDate   DateTime? @map("active_to_date") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  room           Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  billingCycles  BillingCycle[]
+
+  @@index([roomId])
+  @@map("rent_cycle_configs")
+}
+
+model BillingCycle {
+  id                 BigInt       @id @default(autoincrement())
+  roomId             BigInt       @map("room_id")
+  rentCycleConfigId  BigInt       @map("rent_cycle_config_id")
+  cycleStartDate     DateTime     @map("cycle_start_date") @db.Date
+  cycleEndDate       DateTime     @map("cycle_end_date") @db.Date
+  createdAt          DateTime     @default(now()) @map("created_at")
+
+  room               Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  config             RentCycleConfig @relation(fields: [rentCycleConfigId], references: [id])
+  tenantsSnapshot    BillingCycleTenantsSnapshot[]
+  roomRentLedger     RoomRentLedger?
+  electricityLedger  ElectricityLedger?
+
+  @@unique([roomId, cycleStartDate, cycleEndDate])
+  @@index([roomId])
+  @@map("billing_cycles")
+}
+
+model BillingCycleTenantsSnapshot {
+  id                 BigInt       @id @default(autoincrement())
+  billingCycleId     BigInt       @map("billing_cycle_id")
+  tenantId           BigInt       @map("tenant_id")
+  tenantNameSnapshot String       @map("tenant_name_snapshot") @db.VarChar(120)
+  createdAt          DateTime     @default(now()) @map("created_at")
+
+  billingCycle       BillingCycle @relation(fields: [billingCycleId], references: [id], onDelete: Cascade)
+  tenant             Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([billingCycleId, tenantId])
+  @@map("billing_cycle_tenants_snapshot")
+}
+
+model RoomRentLedger {
+  id                   BigInt        @id @default(autoincrement())
+  billingCycleId       BigInt        @unique @map("billing_cycle_id")
+  amount               Decimal       @db.Decimal(10, 2)
+  amountPaid           Decimal       @default(0.00) @map("amount_paid") @db.Decimal(10, 2)
+  status               PaymentStatus @default(UNPAID)
+  dueDate              DateTime      @map("due_date") @db.Date
+  paidDate             DateTime?     @map("paid_date")
+  paymentMethod        String?       @map("payment_method") @db.VarChar(50)
+  transactionReference String?       @map("transaction_reference") @db.VarChar(100)
+  notes                String?       @db.Text
+  createdAt            DateTime      @default(now()) @map("created_at")
+
+  billingCycle         BillingCycle  @relation(fields: [billingCycleId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("room_rent_ledgers")
+}
+
+model ElectricityLedger {
+  id                   BigInt        @id @default(autoincrement())
+  billingCycleId       BigInt        @unique @map("billing_cycle_id")
+  unitsConsumed        Decimal?      @map("units_consumed") @db.Decimal(10, 2)
+  ratePerUnit          Decimal?      @map("rate_per_unit") @db.Decimal(8, 2)
+  amount               Decimal       @db.Decimal(10, 2) // Formula: Units * Rate
+  amountPaid           Decimal       @default(0.00) @map("amount_paid") @db.Decimal(10, 2)
+  status               PaymentStatus @default(UNPAID)
+  dueDate              DateTime      @map("due_date") @db.Date
+  paidDate             DateTime?     @map("paid_date")
+  paymentMethod        String?       @map("payment_method") @db.VarChar(50)
+  transactionReference String?       @map("transaction_reference") @db.VarChar(100)
+  notes                String?       @db.Text
+  createdAt            DateTime      @default(now()) @map("created_at")
+
+  billingCycle         BillingCycle  @relation(fields: [billingCycleId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("electricity_ledgers")
+}
+
+model DocumentMetadata {
+  id                 BigInt       @id @default(autoincrement())
+  uploadedByUserId   BigInt       @map("uploaded_by_user_id")
+  objectKey          String       @unique @map("object_key") @db.VarChar(255) // Cloudflare R2 object key
+  encryptionIv       String       @map("encryption_iv") @db.VarChar(64)       // AES-256 GCM IV hex
+  encryptionAuthTag  String       @map("encryption_auth_tag") @db.VarChar(64) // AES-256 Auth Tag
+  originalFileName   String       @map("original_file_name") @db.VarChar(255)
+  mimeType           String       @map("mime_type") @db.VarChar(100)
+  fileSizeBytes      BigInt       @map("file_size_bytes")
+  createdAt          DateTime     @default(now()) @map("created_at")
+
+  uploadedByUser     User         @relation("UploadedDocuments", fields: [uploadedByUserId], references: [id])
+  supplierBills      SupplierMasterBill[]
+
+  @@map("document_metadata")
+}
+
+model Complaint {
+  id             BigInt            @id @default(autoincrement())
+  tenantId       BigInt            @map("tenant_id")
+  roomId         BigInt            @map("room_id")
+  category       ComplaintCategory
+  severity       ComplaintSeverity @default(MEDIUM)
+  title          String            @db.VarChar(200)
+  description    String            @db.Text
+  status         ComplaintStatus   @default(OPEN)
+  landlordNotes  String?           @map("landlord_notes") @db.Text
+  resolvedAt     DateTime?         @map("resolved_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  tenant         User              @relation("TenantComplaints", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("complaints")
+}
+```

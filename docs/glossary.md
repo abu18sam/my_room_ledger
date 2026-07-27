@@ -1,0 +1,41 @@
+# Glossary of Terms & Abbreviations
+
+**Project:** Room & Rent Ledger Management System (*My Room Ledger*)  
+**Purpose:** Single source of truth for domain vocabulary, abbreviations, and system terms across all development stages.
+
+---
+
+## Domain Abbreviations & Terms
+
+| Term / Abbreviation | Full Name / Definition | Context & Notes |
+| :--- | :--- | :--- |
+| **FR** | Functional Requirement | Specific capability or behavior required by the system. |
+| **NFR** | Non-Functional Requirement | Quality attribute (performance, security, auditability, data integrity). |
+| **AC** | Acceptance Criteria | Testable condition that must be met to satisfy a Functional Requirement. |
+| **RBAC** | Role-Based Access Control | Permission enforcement separating Super Admin, Admin, Landlord, and Tenant access boundaries. |
+| **Super Admin** | Platform Owner / Role Administrator | Top-tier system user capable of creating Admin accounts and managing platform-wide roles. |
+| **Admin** | Operations Manager | Administrative user capable of onboarding/registering Landlords and viewing platform-wide building statistics. |
+| **Landlord** | Property Owner / Lessor | User with CRUD authority strictly over their own buildings, rooms, rent cycles, P&L dashboard, and complaints. |
+| **Tenant** | Resident / Occupant | User with read-only view of their assigned room, billing status, and complaint submission capability. |
+| **Asset Hierarchy** | Building $\rightarrow$ Floor $\rightarrow$ Room / Bath / Toilet | Structural layout model representing physical property infrastructure. |
+| **Room XY** | Room Numbering Format | Standardized room identifier where $X$ = floor number ($0$ for Ground) and $Y$ = room index (e.g., `Room 01`, `Room 11`). |
+| **Bath XY** | Shared Bathroom Numbering | Shared bathroom identifier on a floor (e.g., `Bath 01`, `Bath 11`). |
+| **Toilet XY** | Shared Toilet Numbering | Shared toilet identifier on a floor (e.g., `Toilet 01`, `Toilet 11`). |
+| **Hybrid Floor** | Mixed Amenities Floor Layout | A floor containing both rooms with private attached bathrooms and rooms utilizing shared floor bathrooms. |
+| **Rent Cycle** | Billing Time Window | Configurable cycle window (e.g., 5th of month to 4th of next month), adjustable mid-tenancy by Landlord. |
+| **Independent Financial Ledger** | Uncoupled Payment Entities | Core rule that Room Rent and Electricity Bill are independent records with separate status (`PAID` / `UNPAID`), due dates, and paid timestamps. |
+| **IFY** | Indian Financial Year | Financial year tracking from **April 1st to March 31st** of the following year for tax compliance. |
+| **P&L** | Profit and Loss | Financial report detailing total collected revenue (Rent + Electricity), operating expenses, and net profit: $\text{Net Profit} = (\text{Rent Collected} + \text{Electricity Collected}) - (\text{Building Expenses})$. |
+| **Building Expenses** | Property Operating Expenses | Logged building-level costs (Water bills, maintenance, repairs, security, cleaning, property taxes, miscellaneous). |
+| **Multi-Level Aggregation** | Hierarchical Financial Rollup | Data aggregation across 4 levels: Single Building $\rightarrow$ Landlord Portfolio $\rightarrow$ Per-Landlord Admin View $\rightarrow$ System-Wide View. |
+| **Predictive Analytics** | Time-Series Trend & Risk Forecasting | Statistical algorithms forecasting future revenue, detecting unpaid bill accumulation risks, and identifying occupancy drop trends. |
+| **Pass-Through Cost** | Non-Revenue Financial Flow | Utility expense (Electricity) collected from tenants and remitted to an external supplier (UPCL), excluded from landlord profit calculations. |
+| **Power Supplier** | External Electricity Utility | External electricity provider (e.g., UPCL - Uttarakhand Power Corporation Limited) issuing master building bills. |
+| **Submeter** | Room-Level Electricity Meter | Independent meter measuring room electricity units consumed: $\text{Total Bill} = \text{Units Consumed} \times \text{Rate per Unit}$. |
+| **Tenancy Snapshot** | Immutable Historical Lock | Record capturing exact active tenants assigned to a room during a specific billing cycle, preventing mutation upon tenant move-out. |
+| **KYC** | Know Your Customer | Identity verification data stored during tenant onboarding (Aadhaar, PAN, Passport). |
+| **PWA** | Progressive Web App | Installable web app experience (`next-pwa`) with offline support and service workers. |
+| **Prisma ORM** | Type-Safe Database Client | Next-generation TypeScript ORM managing PostgreSQL schema migrations and queries. |
+| **Cloudflare R2** | Zero-Egress Object Storage | Encrypted object storage for bills, receipts, and government IDs. |
+| **Backend File Encryption** | AES-256 GCM Storage Security | Mandate requiring all files to be encrypted at backend level BEFORE upload to Cloudflare R2. |
+| **Expiring Signed URL** | Temporary Authorized Access Link | Short-lived signed URL generated by backend after verifying RBAC authorization for file access. |

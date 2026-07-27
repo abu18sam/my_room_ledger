@@ -99,12 +99,12 @@ Incoming HTTP Request
 
 ```
 [User: Tenant / Landlord / Admin] 
-  └─ Raises Password Reset Request (POST /api/v1/auth/forgot-password-request)
+  └─ Submits Password Reset Request (POST /api/v1/auth/forgot-password-request)
             │
             ▼
 [NestJS Backend API]
   ├─ 1. Creates `PasswordResetRequest` (Status: PENDING)
-  └─ 2. Emits Notification Event to Admin Notification Queue
+  └─ 2. Emits Notification Event to Admin Header Queue
             │
             ▼
 [Admin/Super Admin Frontend App (Next.js)]
@@ -112,21 +112,21 @@ Incoming HTTP Request
             │
             ▼
 [Admin / Super Admin Action]
-  └─ Clicks Notification & Approves (POST /api/v1/admin/password-reset-requests/{id}/approve)
+  └─ Clicks Notification & Approves Request (POST /api/v1/admin/password-reset-requests/{id}/approve)
             │
             ▼
-[NestJS Backend Approval Execution]
-  ├─ STEP A: Delete ALL `RefreshToken` records for Target User (Global Cross-Device Revocation)
-  ├─ STEP B: Auto-generate Secure Temporary Password & set `isFirstLogin = true`
-  └─ STEP C: Delivery Routing:
-        ├── IF User Has Email    ──> Send Temporary Password via Email Service
-        └── IF User Has NO Email ──> Return Temp Password in Admin Single-View Modal (15-min TTL)
-            │
-            ▼
-[User Login & Enforcement]
-  ├─ 1. User logs in with Temporary Password
-  ├─ 2. API returns `mustChangePassword: true`
-  └─ 3. UI forces immediate redirection to Change Password Form (HTTP 403 on any other route)
+[NestJS Backend Execution]
+  ├─ ROUTE A (User Has Email):
+  │    ├─ Generates Signed Reset Link Token (15-min TTL)
+  │    ├─ Emails Link to User
+  │    ├─ User clicks link → FE `/reset-password?token=...` (displays Name & Email)
+  │    └─ User enters New Password + Confirm → Token invalidated, ALL sessions purged, redirect to Login
+  │
+  └─ ROUTE B (No Registered Email — Fallback Flow):
+       ├─ Generates Secure Temporary Password (30-min TTL) & sets `mustChangePassword = true`
+       ├─ Displays Temp Password in Admin Single-View Modal (recorded in audit logs)
+       ├─ User logs in with Temp Password → forced to "Create New Password" page (displays Name & Email)
+       └─ User sets New Password + Confirm → `mustChangePassword` = false, ALL sessions purged, redirect to Login
 ```
 
 ---

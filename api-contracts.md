@@ -157,41 +157,60 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
 
 ### `POST /api/v1/admin/password-reset-requests/{id}/approve`
 - **Access**: `SUPER_ADMIN` | `ADMIN`
-- **Response (200 OK - Registered Email Case)**:
+- **Response (200 OK - Email Case)**:
   ```json
   {
     "requestId": "req_99812",
     "status": "APPROVED",
     "deliveryChannel": "EMAIL",
-    "message": "Temporary password auto-generated and emailed to ramesh@example.com. All active sessions invalidated.",
-    "temporaryPassword": null
+    "tokenExpiryMinutes": 15,
+    "message": "Signed reset link (valid for 15 mins) emailed to ramesh@example.com."
   }
   ```
-- **Response (200 OK - No Registered Email Edge Case)**:
+- **Response (200 OK - No Email Fallback Case)**:
   ```json
   {
     "requestId": "req_99813",
     "status": "APPROVED",
     "deliveryChannel": "ADMIN_MODAL_DISPLAY",
-    "message": "User has no registered email. Temporary password generated for manual share / SMS.",
-    "temporaryPassword": "TempPassword#8821"
+    "temporaryPassword": "TempPassword#8821",
+    "tempPasswordExpiryMinutes": 30,
+    "message": "Temporary password generated (valid for 30 mins). Share securely with user."
+  }
+  ```
+
+### `POST /api/v1/auth/reset-password-with-link-token`
+- **Access**: Public (Email reset link flow)
+- **Request Body**:
+  ```json
+  {
+    "token": "signed_reset_token_xyz123",
+    "newPassword": "MyNewSecurePassword123!"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "message": "Password reset successfully. Reset link token invalidated. All active sessions purged. Please log in with your new password.",
+    "redirectUrl": "/login"
   }
   ```
 
 ### `POST /api/v1/auth/change-password`
-- **Access**: Authenticated (or user with `mustChangePassword = true`)
+- **Access**: Authenticated (or user logged in with temp password / `mustChangePassword = true`)
 - **Request Body**:
   ```json
   {
-    "currentPassword": "TempPassword#8821",
+    "oldPassword": "TempPassword#8821",
     "newPassword": "NewPermanentSecurePass123!"
   }
   ```
 - **Response (200 OK)**:
   ```json
   {
-    "message": "Password updated successfully. Account unlocked.",
-    "mustChangePassword": false
+    "message": "Password updated successfully. All active sessions invalidated. Account unlocked.",
+    "mustChangePassword": false,
+    "redirectUrl": "/login"
   }
   ```
 

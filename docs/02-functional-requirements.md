@@ -74,31 +74,38 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 ---
 
-### 3.1.4 Password Management Workflow
+### 3.1.4 Password Management & Recovery Workflows
 
-#### First-Time Login — Mandatory Password Change
-
-| ID | Requirement | Source |
-|----|---|---|
-| **FR-P01** | When a Landlord or Tenant account is created by an Admin, it is flagged `isFirstLogin = true`. The assigned initial password is temporary. | Auth Update |
-| **FR-P02** | On first login, the user is **forced to a password change screen** before accessing any other feature. No dashboard, no menu — only the change-password form. | Auth Update |
-| **FR-P03** | After successful password change on first login, `isFirstLogin` is set to `false` and the user proceeds to their dashboard. The old temporary password is immediately invalidated. | Auth Update |
-| **FR-P04** | Any API request (other than the password change endpoint itself) made while `isFirstLogin = true` is rejected with `HTTP 403 MUST_CHANGE_PASSWORD`. | Auth Update |
-
-#### Forgot Password / Password Reset Request Flow
+#### 1. Logged-in User Change Password
 
 | ID | Requirement | Source |
 |----|---|---|
-| **FR-P05** | A Tenant, Landlord, or Admin **cannot** directly reset their own password. All password resets require Admin/Super Admin approval. | Auth Update |
-| **FR-P06** | A Tenant, Landlord, or Admin can raise a **Password Reset Request** from the login screen or profile using their registered email or phone number. | Auth Update |
-| **FR-P07** | Raising a Password Reset Request triggers an immediate real-time notification in the **Admin / Super Admin frontend header notification panel** (header bell icon). | Auth Update |
-| **FR-P08** | An Admin or Super Admin can **approve** a Password Reset Request. On approval, the system auto-generates a secure **temporary password** and flags the account `isFirstLogin = true`. | Auth Update |
-| **FR-P09** | If the user has a registered email address, the system sends the generated temporary password to the user via **Email**. | Auth Update |
-| **FR-P10** | **Edge Case (No Registered Email)**: If the user has no registered email address, Admin approval displays a **secure single-view temporary password modal** in the Admin portal (valid for 15 minutes, logged in audit logs) allowing Admin to securely share it via SMS or in-person. | Auth Update |
-| **FR-P11** | Logging in with a temporary password forces immediate redirection to the password change form (`mustChangePassword = true`). The user cannot access any dashboard until a new password is set. | Auth Update |
-| **FR-P12** | **Global Cross-Device Session Invalidation**: Upon password reset approval/completion, **ALL active sessions across ALL devices** for that user are immediately invalidated (`RefreshToken` records deleted from database). The user must log in again on every device. | Auth Update |
+| **FR-P00a** | A logged-in user (Tenant, Landlord, Admin, Super Admin) can change their password from the profile/settings page or login page by providing: **Old Password**, **New Password**, and **Confirm New Password**. | Auth Update |
+| **FR-P00b** | **Password Masking UI Toggle**: All password input fields across the entire application (login, reset, change) MUST feature a UI toggle control (show/hide eye icon) to mask or reveal entered characters. | Auth Update |
+| **FR-P01** | Accounts created by Admins or reset via temporary password are flagged `mustChangePassword = true`. The user is **forced to a password change screen** before accessing any other feature. | Auth Update |
+| **FR-P02** | Any API request (other than the change-password endpoint itself) made while `mustChangePassword = true` is rejected with `HTTP 403 MUST_CHANGE_PASSWORD`. | Auth Update |
 
-#### Security Constraints on Passwords
+#### 2. Forgot Password Workflow (With Registered Email)
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-P05** | User (Tenant, Landlord, Admin) submits a "Forgot Password" request from the login page by providing their registered email. | Auth Update |
+| **FR-P06** | Raising a reset request triggers a real-time notification badge in the **Admin / Super Admin frontend header notification panel** (header bell icon). | Auth Update |
+| **FR-P07** | Upon Admin/Super Admin approval, the system generates a signed reset link (token valid for **15 minutes**) and emails it to the user. | Auth Update |
+| **FR-P08** | Clicking the email link redirects the user to the frontend reset page (`/reset-password?token=...`), displaying the user's **Name** and **Email**. | Auth Update |
+| **FR-P09** | User enters **New Password** + **Confirm New Password** (masked with toggle, regex validated). On success, the reset token expires immediately (single-use), all active sessions across all devices are invalidated, and the user is redirected to the Login page. | Auth Update |
+| **FR-P09a** | Using a reset link token more than once or after 15 minutes returns `HTTP 400 TOKEN_EXPIRED` or `HTTP 400 TOKEN_ALREADY_USED`. | Auth Update |
+
+#### 3. Fallback Workflow (No Registered Email — Admin, Landlord & Tenant)
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-P10** | **Admin / Fallback Temp Password Generation**: When a user has no registered email (or for direct Admin reset), Admin/Super Admin approval generates a secure **temporary password** (valid for **30 minutes**) displayed in a single-view Admin modal for secure manual share (in-person/SMS). | Auth Update |
+| **FR-P11** | User logs in using the temporary password and is automatically redirected to the **"Create New Password" page** (`mustChangePassword = true`). | Auth Update |
+| **FR-P11a** | The "Create New Password" page displays the user's **Name** (and Email if available). User enters **New Password** + **Confirm New Password**, validated against regex complexity rules with field-level error messages. | Auth Update |
+| **FR-P12** | **Global Cross-Device Session Invalidation**: Upon any successful password update or reset, **ALL active sessions across ALL devices** for that user are immediately invalidated (`RefreshToken` records purged from DB). User must log in again on all devices. | Auth Update |
+
+#### 4. Security Constraints on Passwords
 
 | ID | Requirement | Source |
 |----|---|---|

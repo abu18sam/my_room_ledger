@@ -58,35 +58,44 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 
 ---
 
-## AC-P01 — First-Login Mandatory Password Change
+## AC-P00 — Change Password (Logged-in User)
 
-**Requirements:** FR-P01, FR-P02, FR-P03, FR-P04
+**Requirements:** FR-P00a, FR-P00b
 
 | ID | Criterion |
 |----|---|
-| **AC-P01.1** | A newly created Landlord or Tenant account has `isFirstLogin = true` in the database. |
-| **AC-P01.2** | On first successful login, the API response includes a flag `mustChangePassword: true` and the frontend immediately redirects to the password-change screen. No other route is accessible. |
-| **AC-P01.3** | Any API call to a protected endpoint (other than `POST /api/v1/auth/change-password`) while `isFirstLogin = true` returns HTTP 403 `MUST_CHANGE_PASSWORD`. |
-| **AC-P01.4** | After the user successfully sets a new password on first login: `isFirstLogin` is set to `false`, the temporary password is invalidated, and the user is redirected to their dashboard. |
-| **AC-P01.5** | The new password on first login must meet the complexity rules (FR-P14) — a weak password returns HTTP 400 `VALIDATION_ERROR` with field-level feedback. |
+| **AC-P00.1** | A logged-in user can change password by providing Old Password, New Password, and Confirm New Password. Passing an incorrect Old Password returns HTTP 400 `INVALID_CURRENT_PASSWORD`. |
+| **AC-P00.2** | All password input fields in the frontend UI (Login, Change Password, Reset Password) render a mask toggle icon (show/hide eye icon) to toggle character visibility. |
+| **AC-P00.3** | Mismatch between New Password and Confirm New Password is caught on frontend (validation message) and rejected on backend with HTTP 400 `PASSWORD_MISMATCH`. |
 
 ---
 
-## AC-P05 — Admin-Controlled Password Reset Flow
+## AC-P01 — Forced Password Change Flow
 
-**Requirements:** FR-P05, FR-P06, FR-P07, FR-P08, FR-P09, FR-P10, FR-P11, FR-P12
+**Requirements:** FR-P01, FR-P02
 
 | ID | Criterion |
 |----|---|
-| **AC-P05.1** | A Tenant, Landlord, or Admin can raise a Password Reset Request by providing their registered email or phone number. Request status is created as `PENDING`. |
-| **AC-P05.2** | There is **no** public self-service password reset bypass. Any attempt to update password without an active session or approved reset returns HTTP 403 `FORBIDDEN`. |
-| **AC-P05.3** | Raising a Password Reset Request emits an immediate real-time notification to the Admin and Super Admin frontend header notification panel (bell icon badge). |
-| **AC-P05.4** | Upon Admin/Super Admin approval, the system auto-generates a secure temporary password, flags the account `isFirstLogin = true`, and **deletes ALL `RefreshToken` records for that user across ALL devices**. |
-| **AC-P05.5** | Given a user with a registered email, the system dispatches the generated temporary password via Email. |
-| **AC-P05.6** | **Edge Case (No Registered Email)**: Given a user without a registered email, Admin approval displays a single-view temporary password modal in the Admin portal (valid for 15 minutes, logged in audit trail) for manual/SMS dispatch. |
-| **AC-P05.7** | Logging in with the temporary password returns HTTP 200 with `mustChangePassword: true` and forces immediate redirection to the password change screen. Access to any other route returns HTTP 403 `MUST_CHANGE_PASSWORD`. |
-| **AC-P05.8** | Setting the new password successfully sets `isFirstLogin = false` and invalidates the temporary password. |
-| **AC-P05.9** | After password reset approval, any existing access token on any other device returns HTTP 401 `UNAUTHORIZED` on its next API call. |
+| **AC-P01.1** | Accounts flagged `mustChangePassword = true` (newly created or reset via temp password) return HTTP 200 with `mustChangePassword: true` on login. |
+| **AC-P01.2** | Frontend immediately redirects users with `mustChangePassword: true` to the "Create New Password" page displaying their Name (and Email if available). No other navigation is allowed. |
+| **AC-P01.3** | Any API request to protected routes while `mustChangePassword = true` (except `POST /api/v1/auth/change-password`) returns HTTP 403 `MUST_CHANGE_PASSWORD`. |
+
+---
+
+## AC-P05 — Forgot Password & Recovery Flows
+
+**Requirements:** FR-P05, FR-P06, FR-P07, FR-P08, FR-P09, FR-P09a, FR-P10, FR-P11, FR-P12
+
+| ID | Criterion |
+|----|---|
+| **AC-P05.1** | Submitting a "Forgot Password" request from login page creates a `PENDING` request and triggers a real-time notification in the Admin/Super Admin frontend header bell panel. |
+| **AC-P05.2** | **Email Flow (Registered Email)**: Upon Admin approval, system sends an email with a signed reset link valid for **15 minutes**. |
+| **AC-P05.3** | Clicking the reset link redirects to `/reset-password?token=...` displaying the user's **Name** and **Email**. User enters New Password + Confirm New Password. |
+| **AC-P05.4** | On successful reset via link: reset link token expires immediately (single-use), **ALL active sessions on all devices are purged**, and user is redirected to Login page. |
+| **AC-P05.5** | Attempting to use an expired (> 15 mins) or already-used reset link token returns HTTP 400 `TOKEN_EXPIRED` or `TOKEN_ALREADY_USED`. |
+| **AC-P05.6** | **No-Email Fallback Flow**: Given a user without a registered email (or direct Admin reset), Admin approval generates a **temporary password valid for 30 minutes** displayed in an Admin single-view modal for manual share. |
+| **AC-P05.7** | Target user logging in with temporary password is automatically redirected to the "Create New Password" page (`mustChangePassword = true`) showing their Name (and Email if available). |
+| **AC-P05.8** | Setting new password successfully sets `mustChangePassword = false`, invalidates the temporary password, purges all active sessions across all devices, and redirects user to Login page. |
 
 ---
 

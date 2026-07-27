@@ -13,6 +13,8 @@
 4. Only then move to the next stage.
 5. **Never invent requirements.** If something is ambiguous, stop and ask.
 6. **Traceability is mandatory:** every implementation must cite requirement IDs, acceptance criteria, tests, and any confirmed assumptions.
+7. **Modular Documentation Allocation:** New business rules, functional requirements, acceptance criteria, or technical specs MUST be placed into their dedicated document with explicit cross-referencing (`BR-xx` in `docs/business-rules.md`, `FR-xx` in `docs/02-functional-requirements.md`, `AC-xx` in `docs/acceptance-criteria.md`). Never bloat `MASTER.md`.
+8. **Mandatory Glossary Maintenance:** [`docs/glossary.md`](glossary.md) MUST be updated whenever new terms, abbreviations, domain concepts, or document references are introduced or used anywhere in the workspace.
 
 ### Principles
 
@@ -31,6 +33,7 @@ Requirement (FR-xx/NFR-xx) → Acceptance criteria (AC-xx.y) → Design decision
 | File | Stage | Status |
 | :--- | :--- | :--- |
 | [00-engineering-workflow.md](00-engineering-workflow.md) | Meta (this file) | Active |
+| [business-rules.md](business-rules.md) | Meta (authoritative business rules) | Active — single source of truth for domain logic |
 | [glossary.md](glossary.md) | Meta (abbreviations & terms) | Active — update when new terms appear |
 | [deployment-strategy.md](deployment-strategy.md) | Meta (living deployment plan) | Active — continuously refined across stages |
 | [01-requirement-analysis.md](01-requirement-analysis.md) | Stage 01 | Confirmed |

@@ -63,10 +63,13 @@ Traditional rental management for urban shared accommodations (PGs, co-living bu
 
 ## 3. Role Hierarchy & Access Control Matrix
 
+### 3.1 Role Permission Matrix
+
 | Capability / Action | Super Admin | Admin | Landlord | Tenant |
 | :--- | :---: | :---: | :---: | :---: |
-| Create, Update, Delete Admin Accounts | ✅ Full | ❌ Blocked | ❌ Blocked | ❌ Blocked |
+| Create, Update, Delete Admin & Super Admin Accounts | ✅ Full | ❌ Blocked | ❌ Blocked | ❌ Blocked |
 | Onboard & Manage Landlord Profiles | ✅ Full | ✅ Allowed | ❌ Blocked | ❌ Blocked |
+| System Configuration & Global Audit Logs | ✅ Full | ❌ Read-Only | ❌ Blocked | ❌ Blocked |
 | Building & Room Structural Management | 🔍 System Audit | 🔍 System Audit | ✅ Own Properties Only | ❌ Blocked |
 | Input Room Submeter Readings & Generate Elec Bill | 🔍 System Audit | 🔍 System Audit | ✅ Own Properties Only | ❌ Blocked |
 | Log Master Supplier Bill (UPCL) & Upload PDF/Image | 🔍 System Audit | 🔍 System Audit | ✅ Own Properties Only | ❌ Blocked |
@@ -74,6 +77,12 @@ Traditional rental management for urban shared accommodations (PGs, co-living bu
 | Multi-Level Financial & Electricity Flow View | ✅ System-Wide | ✅ System-Wide | ✅ Own Portfolio | 🚫 STRICTLY BLOCKED |
 | View Room Payment History (Rent + Submeter Elec) | 🔍 System Audit | 🔍 System Audit | ✅ Own Properties Only | 🔍 Own Assigned Room Only |
 | Create / Track Complaints | 🔍 Audit | 🔍 Audit | 🔍 Audit / Resolve | ✅ Log & Track Own |
+
+### 3.2 Security & Data Isolation Enforcement Rules
+1. **Backend Source of Truth**: Authorization is enforced via NestJS `@Roles(...)` decorators, `JwtAuthGuard`, and `RolesGuard`. The frontend renders menus/controls dynamically for UX, but client-side gating is not relied upon for security.
+2. **Landlord Data Isolation**: Database queries enforce row-level ownership checks (`where: { landlordId: req.user.id }`). Landlord A cannot query Landlord B's buildings, tenants, or financial ledgers under any condition.
+3. **Tenant Self-Access Isolation**: Tenant access is strictly scoped to `where: { tenantId: req.user.tenantId }`. Tenants have zero visibility into other rooms, other tenants, building operating expenses, or revenue dashboards.
+4. **Super Admin Creation Protection**: Only an existing `SUPER_ADMIN` can create another `SUPER_ADMIN`. Attempting to register or promote a Super Admin from an Admin account returns `HTTP 403 FORBIDDEN`.
 
 ---
 

@@ -132,32 +132,70 @@ enum ComplaintSeverity {
   URGENT
 }
 
-enum ComplaintStatus {
-  OPEN
-  IN_PROGRESS
-  RESOLVED
+enum RequestStatus {
+  PENDING
+  APPROVED
   REJECTED
 }
 
 // MODEL DEFINITIONS
+model CountryCode {
+  id                 BigInt   @id @default(autoincrement())
+  countryCode        String   @unique @map("country_code") @db.VarChar(5) // ISO alpha-2 e.g. "IN"
+  dialCode           String   @map("dial_code") @db.VarChar(10)          // e.g. "+91"
+  countryName        String   @map("country_name") @db.VarChar(100)      // e.g. "India"
+  flagEmoji          String   @map("flag_emoji") @db.VarChar(10)         // e.g. "🇮🇳"
+  phoneRegexPattern  String   @map("phone_regex_pattern") @db.VarChar(255) // e.g. "^[6-9]\\d{9}$"
+  minLength          Int      @default(10) @map("min_length")
+  maxLength          Int      @default(10) @map("max_length")
+  isDefault          Boolean  @default(false) @map("is_default")         // True for +91 India
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  users              User[]   @relation("UserCountryCode")
+
+  @@index([dialCode])
+  @@map("country_codes")
+}
+
 model User {
-  id               BigInt      @id @default(autoincrement())
-  fullName         String      @map("full_name") @db.VarChar(120)
-  email            String      @unique @db.VarChar(150)
-  phoneNumber      String      @unique @map("phone_number") @db.VarChar(20)
-  passwordHash     String      @map("password_hash") @db.VarChar(255)
-  role             UserRole    @default(TENANT)
-  isSystemActive   Boolean     @default(true) @map("is_system_active")
-  createdAt        DateTime    @default(now()) @map("created_at")
-  updatedAt        DateTime    @updatedAt @map("updated_at")
+  id                 BigInt      @id @default(autoincrement())
+  fullName           String      @map("full_name") @db.VarChar(120)
+  email              String?     @unique @db.VarChar(150)
+  phoneNumber        String      @unique @map("phone_number") @db.VarChar(20)
+  passwordHash       String      @map("password_hash") @db.VarChar(255)
+  role               UserRole    @default(TENANT)
+  mustChangePassword Boolean     @default(false) @map("must_change_password")
+  isSystemActive     Boolean     @default(true) @map("is_system_active")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
 
   // Relationships
-  buildings        Building[]  @relation("LandlordBuildings")
-  tenantProfile    Tenant?
-  documentsUploaded DocumentMetadata[] @relation("UploadedDocuments")
-  complaints       Complaint[] @relation("TenantComplaints")
+  buildings          Building[]  @relation("LandlordBuildings")
+  tenantProfile      Tenant?
+  documentsUploaded  DocumentMetadata[] @relation("UploadedDocuments")
+  complaints         Complaint[] @relation("TenantComplaints")
+  resetRequests      PasswordResetRequest[] @relation("UserResetRequests")
 
   @@map("users")
+}
+
+model PasswordResetRequest {
+  id                 BigInt        @id @default(autoincrement())
+  userId             BigInt        @map("user_id")
+  status             RequestStatus @default(PENDING)
+  deliveryChannel    String        @map("delivery_channel") @db.VarChar(50) // EMAIL, ADMIN_MODAL_DISPLAY, SMS
+  approvedByUserId   BigInt?       @map("approved_by_user_id")
+  rejectionReason    String?       @map("rejection_reason") @db.Text
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  user               User          @relation("UserResetRequests", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userId])
+  @@map("password_reset_requests")
 }
 
 model Building {

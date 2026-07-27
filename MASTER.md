@@ -42,25 +42,32 @@
 - **Pass-Through Cost Model**: Electricity payments are **NOT revenue or profit**. All collections are ultimately paid to the external power supplier (e.g., UPCL).
 - **Landlord Profit Formula**:
   $$\text{Net Profit} = (\text{Room Rent Collected}) - (\text{Building Operating Expenses})$$
-  *(Electricity collections are excluded from profit calculations).*
+  *(Electricity collections are excluded from net profit calculations).*
 - **Dual Flow Payment Tracking**:
   - **Flow 1 (Tenant $\rightarrow$ Landlord)**: Room submeter collection. Formula: $\text{Total Bill} = \text{Units Consumed} \times \text{Rate per Unit}$. Status: `UNPAID`, `PARTIALLY_PAID`, `PAID`, `OVERDUE`.
   - **Flow 2 (Landlord $\rightarrow$ Power Supplier)**: Master building bill (e.g., UPCL). Stores supplier name, total master bill amount, payment status, and digital bill attachment (PDF/Image).
+- **Electricity Reconciliation & Variance Audit (CRITICAL)**:
+  - System tracks and compares **Tenant Electricity Collected** vs. **Power Supplier Master Bill Amount** for each billing cycle, monthly, and yearly (Indian Financial Year: April 1 – March 31).
+  - **Reconciliation Formula**:
+    $$\text{Electricity Variance} = (\text{Tenant Electricity Collected}) - (\text{Supplier Master Bill Amount})$$
+  - **Surplus ($\text{Variance} > 0$)**: Extra funds collected from tenants over the master bill.
+  - **Deficit / Shortfall ($\text{Variance} < 0$)**: Under-collected from tenants; landlord paying out-of-pocket.
+  - **Balanced ($\text{Variance} = 0$)**: Perfect match between collections and supplier billing.
 - **Invariant Rule**: Updating Room Rent status to `PAID` MUST NEVER alter Electricity Bill status, and vice versa.
 
 ### Rule 4: Multi-Level Financial Aggregation & Predictive Analytics (CRITICAL MODULE)
 - **Multi-Level Aggregation Scope**:
-  - **Level 1 (Single Building)**: Rent revenue, expenses, net profit, electricity pass-through audit, occupancy.
-  - **Level 2 (Landlord Portfolio)**: Aggregated view across all buildings owned by a single landlord.
-  - **Level 3 (Per-Landlord Admin View)**: Admin breakdown of individual landlord financial performance.
+  - **Level 1 (Single Building)**: Rent revenue, expenses, net profit, electricity pass-through & reconciliation audit (surplus/deficit), occupancy.
+  - **Level 2 (Landlord Portfolio)**: Aggregated view across all buildings owned by a single landlord (portfolio rent, total operating expenses, portfolio net profit, portfolio electricity reconciliation surplus/deficit).
+  - **Level 3 (Per-Landlord Admin View)**: Admin breakdown of individual landlord financial performance and electricity reconciliation state.
   - **Level 4 (System-Wide Platform View)**: Super Admin & Admin global platform metrics.
 - **Building Expense Logging**: Category-wise tracking (water bills, maintenance, repairs, security, cleaning, property taxes, miscellaneous).
 - **Time Window Filtering**: Monthly, Indian Financial Year (**April 1st to March 31st**), and Custom Date Ranges.
 - **Predictive & Historical Analytics**:
-  - **Historical Trends**: Multi-year rent revenue, expense trends, occupancy history over time.
+  - **Historical Trends**: Multi-year rent revenue, expense trends, occupancy history, and electricity surplus/deficit history over time.
   - **Predictive Forecasting**: Statistical future revenue projections based on active tenancies and collection velocity.
-  - **Risk Indicators**: Early warning alerts for mounting unpaid bills, declining occupancy rates, and overdue spikes.
-  - **Growth Suggestions**: Rent optimization insights and expense control recommendations.
+  - **Risk Indicators**: Early warning alerts for mounting unpaid bills, declining occupancy rates, overdue spikes, and growing electricity deficits (out-of-pocket losses).
+  - **Growth Suggestions**: Rent optimization insights, expense control recommendations, and submeter rate adjustments.
 
 ### Rule 5: Multi-Building & Asset Hierarchy Scaling
 - Scales seamlessly from 2 buildings to $N$ buildings under a single landlord account.
@@ -101,16 +108,56 @@
   ```
 
 #### 10.2 — Strict Security Rules
+
+**Session Management**
+- **Multi-Device Login**: A single user may maintain **multiple concurrent sessions** across devices. Each login creates an independent `RefreshToken` database record scoped to that session.
+- **Session Isolation**: Sessions are fully isolated — a token from Device A is not valid for Device B. Logout from one device terminates **only that session's** `RefreshToken` record. Other sessions remain unaffected.
+- **Server-Side Session Store**: Refresh tokens are stored in the `RefreshToken` database table (not stateless). This enables precise revocation per-session and full logout-all capability.
+- **JWT Security**: Access tokens expire in **15 minutes** (stored in-memory on client). Refresh tokens expire in **7 days** (stored in `HttpOnly; Secure; SameSite=Strict` cookies only).
+
+**Password Management**
+- **First-Login & Reset Mandatory Change**: Accounts created by Admins or reset via temporary password are flagged `isFirstLogin = true`. The user is **forced to a change-password screen** on login before accessing any feature. Any other API request while this flag is `true` returns `HTTP 403 MUST_CHANGE_PASSWORD`.
+- **Admin-Controlled Reset Workflow (Tenants, Landlords, Admins)**:
+  - Users **cannot self-reset** passwords without approval.
+  - User raises a "Forgot / Reset Password" request via login screen or profile.
+  - Request triggers a real-time notification to Admin / Super Admin in the **frontend header notification panel**.
+  - Admin or Super Admin reviews and **approves** the request.
+  - System auto-generates a secure **temporary password** and sets `isFirstLogin = true`.
+  - System sends the temporary password to the user's registered email.
+- **Edge Case (No Registered Email)**:
+  - If a user (e.g. Tenant/Landlord onboarded via phone) has no registered email, Admin approval displays a **secure single-view temporary password modal** in the Admin portal (valid for 15 mins, recorded in audit logs) allowing Admin to securely share it via SMS or in-person. The user is still forced to change password upon login.
+- **Global Cross-Device Session Invalidation (MANDATORY)**:
+  - Upon password reset approval/completion, **ALL active sessions across ALL devices** for that user are immediately invalidated (`RefreshToken` records deleted from database).
+  - User must log in again on every device using the temporary password.
+- **Password Complexity**: Minimum 8 characters, at least 1 uppercase, 1 lowercase, 1 digit, 1 special character.
+- **Password Reuse Prevention**: Users cannot reuse any of their last 3 passwords.
+- **Password Storage**: All passwords stored as **bcrypt hashes** (minimum 12 salt rounds). Plaintext passwords are never stored, logged, or transmitted.
+
+**File & API Security**
 - **Backend File Encryption**: All sensitive files (Government IDs, payment receipts, supplier bills) MUST be encrypted at the backend level (AES-256 GCM) BEFORE being uploaded to Cloudflare R2 object storage.
 - **Zero Public URL Access**: Objects in Cloudflare R2 are strictly private. Direct client storage URLs are strictly prohibited.
 - **Expiring Signed URLs**: File access is authorized ONLY via backend-generated short-lived expiring signed URLs following strict RBAC validation.
-- **Password Security**: All passwords hashed with `bcrypt` (minimum 12 salt rounds). Plain-text passwords must never be stored or logged.
-- **JWT Security**: Access tokens expire in 15 minutes (stored in-memory). Refresh tokens expire in 7 days (stored in `HttpOnly; Secure; SameSite=Strict` cookies only).
 - **Rate Limiting**: All endpoints protected via `@nestjs/throttler` (100 requests / 15 minutes per IP). Auth endpoints have stricter limits (5 attempts / 15 minutes).
 - **HTTP Security Headers**: `Helmet.js` applied globally at bootstrap — enforces `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Strict-Transport-Security`.
 - **CORS Lockdown**: Only the `NEXT_PUBLIC_FRONTEND_URL` origin is whitelisted. All other origins are rejected.
 - **Data Protection & Input Sanitization**: No raw unsanitized user input ever reaches business logic. Sanitization is enforced via Zod `.trim()` + `.min()` + regex pattern matching on string fields.
-- **Mobile-First Installable PWA**: Frontend delivered as a Progressive Web App (Next.js + `next-pwa` + Tailwind CSS + ShadCN UI + Recharts) for an installable, app-like experience across desktop, tablet, and mobile.
+#### 10.3 — Dual Login Methods & Dynamic Country Code Validation Architecture (MANDATORY)
+
+**Supported Login Credentials**
+1. **Email + Password**: Email format validated against RFC 5322 regex standard.
+2. **Phone Number + Password**: Requires mandatory `Country Code` dropdown selection (default `+91 🇮🇳 India`) + local phone number input + password.
+
+**Validation Architecture & Source of Truth**
+- **Backend Source of Truth**: The Backend (NestJS + Zod) is the ultimate security boundary. All authentication inputs are validated at request entry via `ZodValidationPipe`. No client-side validation is trusted implicitly.
+- **Frontend UX Validation**: The Frontend executes matching Zod client-side validation for instant user feedback (preventing unnecessary network roundtrips).
+
+**DB-Managed Country Code & Regex System**
+- **Zero Frontend Hardcoding**: Frontend MUST NOT hardcode or store phone regex patterns or country lists.
+- **Database Table (`country_codes`)**: All supported country codes, dial codes (e.g. `+91`), country names, flag emojis (e.g. `🇮🇳`), and regex validation patterns (e.g. `^[6-9]\d{9}$`) are stored and managed in the backend database.
+- **Dynamic Metadata Fetching**: On application load/login render, the frontend fetches active country codes via `GET /api/v1/meta/country-codes` (cached client-side).
+- **Mandatory Default**: `+91` (India) is set as the default selection and cannot be unselected (must always have a valid country code picked).
+- **E.164 Phone Normalization**: Backend normalizes all phone numbers to E.164 format (`+<dialCode><number>`) before database querying and persistence.
+
 
 
 ---

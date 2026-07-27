@@ -34,8 +34,8 @@ Requirement (FR-xx/NFR-xx) → Acceptance criteria (AC-xx.y) → Design decision
 | [glossary.md](glossary.md) | Meta (abbreviations & terms) | Active — update when new terms appear |
 | [deployment-strategy.md](deployment-strategy.md) | Meta (living deployment plan) | Active — continuously refined across stages |
 | [01-requirement-analysis.md](01-requirement-analysis.md) | Stage 01 | Confirmed |
-| [02-functional-requirements.md](02-functional-requirements.md) | Stage 02 | Pending |
-| [acceptance-criteria.md](acceptance-criteria.md) | Stage 02 (companion) | Pending |
+| [02-functional-requirements.md](02-functional-requirements.md) | Stage 02 | **In Progress** |
+| [acceptance-criteria.md](acceptance-criteria.md) | Stage 02 (companion) | **In Progress** |
 | [03-non-functional-requirements.md](03-non-functional-requirements.md) | Stage 03 | Pending |
 | [04-domain-model.md](04-domain-model.md) | Stage 04 | Pending |
 | [05-database-design.md](05-database-design.md) | Stage 05 | Pending |
@@ -53,7 +53,7 @@ Requirement (FR-xx/NFR-xx) → Acceptance criteria (AC-xx.y) → Design decision
 | [17-documentation.md](17-documentation.md) | Stage 17 | Pending |
 | [18-repo-restructure.md](18-repo-restructure.md) | Stage 18 | Pending |
 
-**Current Position:** **Stage 01 Complete** — Requirement Analysis finalized and confirmed. Next up: **Stage 02 — Functional Requirements & Acceptance Criteria**.
+**Current Position:** **Stage 02 In Progress** — Functional Requirements & Acceptance Criteria drafted. Awaiting user review and confirmation before Stage 03.
 
 ---
 

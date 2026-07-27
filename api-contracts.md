@@ -59,12 +59,52 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
 ## 1. Authentication & Role Management Endpoints
 
 
+### `GET /api/v1/meta/country-codes`
+- **Access**: Public (Cached on client / CDN)
+- **Response (200 OK)**:
+  ```json
+  [
+    {
+      "id": "1",
+      "countryCode": "IN",
+      "dialCode": "+91",
+      "countryName": "India",
+      "flagEmoji": "🇮🇳",
+      "phoneRegexPattern": "^[6-9]\\d{9}$",
+      "minLength": 10,
+      "maxLength": 10,
+      "isDefault": true
+    },
+    {
+      "id": "2",
+      "countryCode": "US",
+      "dialCode": "+1",
+      "countryName": "United States",
+      "flagEmoji": "🇺🇸",
+      "phoneRegexPattern": "^[2-9]\\d{9}$",
+      "minLength": 10,
+      "maxLength": 10,
+      "isDefault": false
+    }
+  ]
+  ```
+
 ### `POST /api/v1/auth/login`
 - **Access**: Public
-- **Request Body**:
+- **Request Body (Variant A: Email + Password)**:
   ```json
   {
-    "emailOrPhone": "admin@myroomledger.com",
+    "loginType": "EMAIL",
+    "email": "landlord@myroomledger.com",
+    "password": "SecurePassword123!"
+  }
+  ```
+- **Request Body (Variant B: Phone + Country Code + Password)**:
+  ```json
+  {
+    "loginType": "PHONE",
+    "dialCode": "+91",
+    "phoneNumber": "9876543210",
     "password": "SecurePassword123!"
   }
   ```
@@ -72,9 +112,86 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
   ```json
   {
     "token": "eyJhbGciOiJIUzI1NiJ9...",
-    "role": "SUPER_ADMIN",
-    "userId": "1",
-    "fullName": "Super Administrator"
+    "role": "LANDLORD",
+    "userId": "10",
+    "fullName": "Rajesh Kumar",
+    "mustChangePassword": false
+  }
+  ```
+
+### `POST /api/v1/auth/forgot-password-request`
+- **Access**: Public (Tenants, Landlords, Admins)
+- **Request Body**:
+  ```json
+  {
+    "emailOrPhone": "+919876543210"
+  }
+  ```
+- **Response (201 Created)**:
+  ```json
+  {
+    "requestId": "req_99812",
+    "status": "PENDING",
+    "message": "Password reset request submitted for Admin review. You will receive your temporary password upon approval."
+  }
+  ```
+
+### `GET /api/v1/admin/password-reset-requests`
+- **Access**: `SUPER_ADMIN` | `ADMIN`
+- **Query Parameters**: `status=PENDING`
+- **Response (200 OK)**:
+  ```json
+  [
+    {
+      "requestId": "req_99812",
+      "userId": "45",
+      "userName": "Ramesh Kumar",
+      "userRole": "TENANT",
+      "email": "ramesh@example.com",
+      "phoneNumber": "+919876543210",
+      "hasRegisteredEmail": true,
+      "requestedAt": "2026-07-27T19:40:00Z"
+    }
+  ]
+  ```
+
+### `POST /api/v1/admin/password-reset-requests/{id}/approve`
+- **Access**: `SUPER_ADMIN` | `ADMIN`
+- **Response (200 OK - Registered Email Case)**:
+  ```json
+  {
+    "requestId": "req_99812",
+    "status": "APPROVED",
+    "deliveryChannel": "EMAIL",
+    "message": "Temporary password auto-generated and emailed to ramesh@example.com. All active sessions invalidated.",
+    "temporaryPassword": null
+  }
+  ```
+- **Response (200 OK - No Registered Email Edge Case)**:
+  ```json
+  {
+    "requestId": "req_99813",
+    "status": "APPROVED",
+    "deliveryChannel": "ADMIN_MODAL_DISPLAY",
+    "message": "User has no registered email. Temporary password generated for manual share / SMS.",
+    "temporaryPassword": "TempPassword#8821"
+  }
+  ```
+
+### `POST /api/v1/auth/change-password`
+- **Access**: Authenticated (or user with `mustChangePassword = true`)
+- **Request Body**:
+  ```json
+  {
+    "currentPassword": "TempPassword#8821",
+    "newPassword": "NewPermanentSecurePass123!"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "message": "Password updated successfully. Account unlocked.",
+    "mustChangePassword": false
   }
   ```
 
@@ -133,9 +250,13 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
       "totalRentCollected": 450000.00,
       "totalOperatingExpenses": 65000.00,
       "netLandlordProfit": 385000.00,
-      "totalElectricityCollected": 38000.00,
-      "totalElectricityPaidToSupplier": 40000.00,
-      "electricityPassThroughVariance": -2000.00,
+      "electricityReconciliation": {
+        "totalTenantElectricityCollected": 38000.00,
+        "totalSupplierMasterBillAmount": 40000.00,
+        "variance": -2000.00,
+        "status": "DEFICIT",
+        "description": "Under-collected by ₹2,000.00 (Landlord out-of-pocket loss)"
+      },
       "pendingRentDues": 15000.00,
       "pendingElectricityDues": 2500.00,
       "occupancyRatePercentage": 92.5,
@@ -148,7 +269,47 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
         "rentCollected": 250000.00,
         "operatingExpenses": 35000.00,
         "netProfit": 215000.00,
+        "tenantElectricityCollected": 22000.00,
+        "supplierBillAmount": 20000.00,
+        "electricityVariance": 2000.00,
+        "electricityStatus": "SURPLUS",
         "occupancyRate": 95.0
+      }
+    ]
+  }
+  ```
+
+### `GET /api/v1/analytics/electricity-reconciliation`
+- **Access**: `SUPER_ADMIN` | `ADMIN` (System-Wide) | `LANDLORD` (Own Buildings Only)
+- **Query Parameters**:
+  - `buildingId`: optional BigInt
+  - `landlordId`: optional BigInt
+  - `year`: e.g. `2025` (FY 2025-26)
+  - `month`: optional Int (1..12)
+- **Response (200 OK)**:
+  ```json
+  {
+    "buildingId": "101",
+    "buildingName": "Sunshine Heights",
+    "period": "FY 2025-26",
+    "totalTenantElectricityCollected": 38000.00,
+    "totalSupplierMasterBillAmount": 40000.00,
+    "varianceAmount": -2000.00,
+    "status": "DEFICIT",
+    "monthlyBreakdown": [
+      {
+        "month": "April 2025",
+        "tenantCollected": 3500.00,
+        "supplierBill": 3200.00,
+        "variance": 300.00,
+        "status": "SURPLUS"
+      },
+      {
+        "month": "May 2025",
+        "tenantCollected": 3000.00,
+        "supplierBill": 3500.00,
+        "variance": -500.00,
+        "status": "DEFICIT"
       }
     ]
   }

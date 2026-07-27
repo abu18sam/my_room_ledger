@@ -95,6 +95,42 @@ Incoming HTTP Request
 
 ---
 
+## 1c. Password Reset & Header Notification Architecture
+
+```
+[User: Tenant / Landlord / Admin] 
+  └─ Raises Password Reset Request (POST /api/v1/auth/forgot-password-request)
+            │
+            ▼
+[NestJS Backend API]
+  ├─ 1. Creates `PasswordResetRequest` (Status: PENDING)
+  └─ 2. Emits Notification Event to Admin Notification Queue
+            │
+            ▼
+[Admin/Super Admin Frontend App (Next.js)]
+  └─ Header Notification Panel (Bell Icon) displays real-time pending reset badge
+            │
+            ▼
+[Admin / Super Admin Action]
+  └─ Clicks Notification & Approves (POST /api/v1/admin/password-reset-requests/{id}/approve)
+            │
+            ▼
+[NestJS Backend Approval Execution]
+  ├─ STEP A: Delete ALL `RefreshToken` records for Target User (Global Cross-Device Revocation)
+  ├─ STEP B: Auto-generate Secure Temporary Password & set `isFirstLogin = true`
+  └─ STEP C: Delivery Routing:
+        ├── IF User Has Email    ──> Send Temporary Password via Email Service
+        └── IF User Has NO Email ──> Return Temp Password in Admin Single-View Modal (15-min TTL)
+            │
+            ▼
+[User Login & Enforcement]
+  ├─ 1. User logs in with Temporary Password
+  ├─ 2. API returns `mustChangePassword: true`
+  └─ 3. UI forces immediate redirection to Change Password Form (HTTP 403 on any other route)
+```
+
+---
+
 ## 2. Directory & Module Package Layout
 
 ```
@@ -210,26 +246,58 @@ sequenceDiagram
 ## 4. Multi-Level Financial Aggregation Flow
 
 ```
-                     +-----------------------------------+
-                     | Level 4: Super Admin Platform     |
-                     | Global Platform Revenue & Metrics |
-                     +-----------------+-----------------+
-                                       |
-                                       v
-                     +-----------------------------------+
-                     | Level 3: Admin Per-Landlord View  |
-                     | Landlord Breakdown & Metrics      |
-                     +-----------------+-----------------+
-                                       |
-                                       v
-                     +-----------------------------------+
-                     | Level 2: Landlord Portfolio View  |
-                     | Rollup across All Owned Buildings |
-                     +-----------------+-----------------+
-                                       |
-                                       v
-                     +-----------------------------------+
-                     | Level 1: Single Building P&L      |
-                     | Net Profit = Rent - Expenses      |
-                     +-----------------------------------+
+                     +---------------------------------------------------+
+                     | Level 4: Super Admin Platform                     |
+                     | Global Platform Revenue & Metrics                 |
+                     +-------------------------+-------------------------+
+                                               |
+                                               v
+                     +---------------------------------------------------+
+                     | Level 3: Admin Per-Landlord View                  |
+                     | Landlord Financial & Electricity Audit Breakdown  |
+                     +-------------------------+-------------------------+
+                                               |
+                                               v
+                     +---------------------------------------------------+
+                     | Level 2: Landlord Portfolio View                  |
+                     | Rollup across All Owned Buildings                 |
+                     | Portfolio Net Profit & Portfolio Elec Variance    |
+                     +-------------------------+-------------------------+
+                                               |
+                                               v
+                     +---------------------------------------------------+
+                     | Level 1: Single Building P&L & Reconciliation    |
+                     | Net Profit = Rent - Expenses                      |
+                     | Electricity Variance = Tenant Elec - Master Bill  |
+                     | Status: SURPLUS (>0) | DEFICIT (<0) | BALANCED (=0) |
+                     +---------------------------------------------------+
 ```
+
+---
+
+## 5. Electricity Pass-Through & Reconciliation Pipeline
+
+```
+   [ROOM SUBMETERS]                                [POWER SUPPLIER (e.g. UPCL)]
+   Tenant 1: Units × Rate → Elec Ledger 1           Master Building Bill (Period P)
+   Tenant 2: Units × Rate → Elec Ledger 2                    |
+   ...                                                       v
+   Tenant N: Units × Rate → Elec Ledger N         SupplierMasterBill (Amount = B)
+            |                                                |
+            +-----------------------+------------------------+
+                                    |
+                                    v
+                    [RECONCILIATION ENGINE (Service Layer)]
+                    Total Tenant Elec Collected (C) = SUM(Elec Ledger PAID)
+                    Supplier Master Bill Amount (B)
+                                    |
+                                    v
+             Calculates Variance V = C - B (Monthly / IFY / Cycle)
+                                    |
+         +--------------------------+--------------------------+
+         |                                                     |
+         v                                                     v
+   IF V > 0: SURPLUS                                     IF V < 0: DEFICIT
+   (Over-collected extra funds)                          (Under-collected; Out-of-pocket loss)
+```
+

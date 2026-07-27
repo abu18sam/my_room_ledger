@@ -99,10 +99,15 @@ flowchart TD
         J -- Pending --> L[Mark Supplier Bill Status: UNPAID]
     end
 
-    subgraph Audit ["Pass-Through Financial Audit"]
-        E --> M["Electricity Reconciliation Audit: (Tenant Collected) vs (Supplier Paid)"]
+    subgraph Audit ["Pass-Through & Reconciliation Audit"]
+        E --> M["Electricity Reconciliation Audit: Total Tenant Collected (C) vs Supplier Bill (B)"]
         K --> M
-        M --> N[Excluded from Net Profit Calculation]
+        M --> N["Calculate Variance: V = C - B"]
+        N --> O{"Check Variance"}
+        O -- "V > 0" --> P["SURPLUS: Extra Collected"]
+        O -- "V < 0" --> Q["DEFICIT: Under-Collected (Out-of-Pocket)"]
+        O -- "V = 0" --> R["BALANCED: Exact Match"]
+        N --> S[Excluded from Net Profit Calculation]
     end
 ```
 

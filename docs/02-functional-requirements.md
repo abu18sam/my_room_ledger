@@ -146,8 +146,11 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 | ID | Requirement | Source |
 |----|---|---|
-| **FR-22** | A **Landlord** can create a new **Building** (name, address, city, state, pincode, selected **Power Supply Company** via `powerCompanyId`). | MASTER Rule 5, BR-13 |
-| **FR-23** | A Landlord can update their own Building's details (including changing the assigned Power Supply Company). | MASTER Rule 5, BR-13 |
+| **FR-22** | A **Landlord** can create a new **Building** by specifying: name, address, city, state, pincode, selected **Power Supply Company** (`powerCompanyId`), and mandatory active **Connection Number** (`connectionNumber`). | MASTER Rule 5, BR-13.5 |
+| **FR-22a** | A **Landlord** can execute a **Power Supplier Switch** (`POST /api/v1/buildings/{buildingId}/switch-power-supplier`), providing `newPowerCompanyId`, `newConnectionNumber`, `effectiveDate`, and optional `notes`. | BR-13.8, BR-13.9 |
+| **FR-22b** | The system enforces a **Zero Open Dues Pre-Condition** before allowing a power supplier switch. If any `UNPAID` or `OVERDUE` `SupplierMasterBill` records exist for the current supplier, the endpoint rejects the switch with `HTTP 409 PENDING_SUPPLIER_BILLS_EXIST` and returns a list of open bills in `metadata`. | BR-13.8 |
+| **FR-22c** | A **Landlord** can view a building's full historical audit log of power supplier connections (`GET /api/v1/buildings/{buildingId}/power-supplier-history`), returning active and past connections with start and end dates. | BR-13.9 |
+| **FR-23** | A Landlord can update their own Building's details (name, address, city, state, pincode). Power supplier changes MUST be performed via the dedicated switch endpoint (FR-22a). | MASTER Rule 5, BR-13 |
 | **FR-24** | A Landlord can add **Floors** to a Building (floor number, label). | MASTER Rule 5 |
 | **FR-25** | A Landlord can add **Rooms** to a Floor, specifying: room label, max occupancy, monthly rent amount, and bathroom type (`PRIVATE_ATTACHED` or `SHARED_FLOOR`). | MASTER Rule 5, 6 |
 | **FR-26** | A Landlord can add **Shared Bathrooms** and **Shared Toilets** to a Floor with standardized labels (`Bath XY`, `Toilet XY`). | MASTER Rule 6, 7 |
@@ -211,7 +214,8 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | **FR-48** | A Landlord can record a **payment transaction** against an Electricity Ledger (partial or full), supplying: `amountPaid`, optional `paymentDate` (defaults to server UTC timestamp), `paymentMethod`, optional `transactionReference`, and optional `notes`. | BR-14.1 |
 | **FR-48a** | After each electricity payment transaction, the system auto-updates `ElectricityLedger.amountPaid` and transitions `status` using the same state machine as Room Rent (BR-14.2). | BR-14.2 |
 | **FR-49** | Updating Electricity Ledger status **must never** alter Room Rent Ledger status — fully isolated. | MASTER Rule 3 |
-| **FR-50** | Landlord records a **Power Supplier Master Bill** per billing period: selected Power Supply Company, bill cycle dates, total master bill amount, due date. Landlord can subsequently mark the bill `PAID` with an optional `paidDate` (defaults to server UTC timestamp if omitted). No partial payments for supplier bills. | BR-03.3, BR-13, BR-14.6 |
+| **FR-50** | Landlord records a **Power Supplier Master Bill** per billing period: selected Power Supply Company, connection number, optional bill serial number, bill cycle dates (start + end), optional invoice date, optional total units consumed (kWh), total master bill amount, and due date. | BR-03.3, BR-13, BR-14.6 |
+| **FR-50a** | Landlord can mark a `SupplierMasterBill` as `PAID`, optionally recording settlement `paymentMode` (`NEFT`, `UPI`, `CHEQUE`, `ONLINE_PORTAL`, `CASH`), `paymentReference` (UTR/cheque ID), `paidDate` (defaults to server UTC if omitted), and `notes`. Single lump-sum settlement only. | BR-14.6 |
 | **FR-51** | Landlord can upload **digital power bill (PDF/Image)** for supplier bill. AES-256 GCM encrypted before Cloudflare R2 storage. | MASTER Rule 3, 10 |
 | **FR-52** | Electricity collections from tenants are **never counted** as landlord revenue or profit. Excluded from Net Rental Profit formula. | BR-03.1 |
 | **FR-52a** | System tracks **monthly and yearly (IFY) total tenant electricity collected** across all rooms vs. total master supplier bill amount payable per billing period. | BR-03.3, BR-04 |
@@ -274,14 +278,20 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 ---
 
-### 3.12 Input Validation & System-Wide Rules
+### 3.12 Backend Error Handling & Input Validation Standards
 
 | ID | Requirement | Source |
 |----|---|---|
 | **FR-78** | **Every** API endpoint — body, query parameters, and route parameters — is validated through a **Zod schema** via `ZodValidationPipe` before reaching any Controller or Service. | MASTER Rule 10.1 |
-| **FR-79** | Validation failures return `HTTP 400 VALIDATION_ERROR` with structured field-level error details. No partial processing of invalid input occurs. | MASTER Rule 10.1 |
+| **FR-79** | Validation failures return `HTTP 400 VALIDATION_ERROR` with structured field-level error details (`details: [{ field, message }]`). No partial processing of invalid input occurs. | MASTER Rule 10.1, BR-15.2 |
 | **FR-80** | All string inputs are sanitized: `.trim()`, minimum length enforced, and pattern-matched where applicable (e.g., phone numbers, email format). | MASTER Rule 10.1 |
 | **FR-81** | All date inputs are validated as ISO 8601. Indian Financial Year boundary rules (Apr 1 – Mar 31) are enforced for all date range queries. | MASTER Rule 4, 10.1 |
+| **FR-82** | All non-2xx API responses across the system MUST conform to the universal error response envelope (`{ statusCode, error, message, metadata }`) defined in `docs/error-handling.md`. | BR-15.1 |
+| **FR-83** | Deleting or deactivating a `PowerSupplyCompany` linked to ≥1 buildings MUST be rejected with `HTTP 409 COMPANY_IN_USE` accompanied by `metadata.affectedBuildings[]` listing linked building names and landlord details. | BR-13.3, BR-15.4 |
+| **FR-84** | Attempting to record a `PaymentTransaction` where `amountPaid` + existing `ledger.amountPaid` > `ledger.amount` MUST be rejected with `HTTP 400 PAYMENT_EXCEEDS_BALANCE`. | BR-14.2, BR-15.5 |
+| **FR-85** | Requesting a resource ID that does not exist in the database MUST return `HTTP 404 NOT_FOUND`. Requesting a resource owned by another user MUST return `HTTP 403 FORBIDDEN`. | BR-15.5 |
+| **FR-86** | Creating a user (Admin, Landlord, Tenant) with an email or phone number that is already registered MUST return `HTTP 409 DUPLICATE_ENTRY`. | BR-15.5 |
+| **FR-87** | Unhandled server exceptions MUST return `HTTP 500 INTERNAL_SERVER_ERROR` with a generic user message. Stack traces, database constraint names, and internal code paths must never be exposed. | BR-15.3 |
 
 ---
 
@@ -297,15 +307,16 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | FR-P13 – FR-P15 | AC-P13 | Password Security Constraints |
 | FR-09 – FR-14 | AC-09 | Super Admin Management |
 | FR-15 – FR-21 | AC-15 | Admin Management |
-| FR-22 – FR-29 | AC-22 | Building & Asset Hierarchy |
+| FR-22 – FR-29, FR-22a–c | AC-22 | Building, Asset Hierarchy & Power Supplier Switch |
 | FR-30 – FR-35 | AC-30 | Tenant Lifecycle |
 | FR-36 – FR-44 | AC-36 | Rent Cycle, Room Rent Ledger & Payment Transactions |
-| FR-45 – FR-53 | AC-45 | Electricity Pass-Through Model |
+| FR-45 – FR-53, FR-50a | AC-45 | Electricity Pass-Through Model & Master Bills |
 | FR-54 – FR-57 | AC-54 | Building Operating Expenses |
 | FR-58 – FR-67 | AC-58 | Revenue Dashboard & P&L Analytics |
 | FR-68 – FR-72 | AC-68 | Secure Document Management |
 | FR-73 – FR-77 | AC-73 | Complaints & Maintenance |
 | FR-78 – FR-81 | AC-78 | Input Validation & System Rules |
+| FR-82 – FR-87 | AC-82 | Backend Error Handling Standards & Universal Envelopes |
 
 ---
 

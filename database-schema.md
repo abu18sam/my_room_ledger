@@ -116,6 +116,11 @@ enum LedgerType {
   ELECTRICITY
 }
 
+enum SupplierConnectionStatus {
+  ACTIVE
+  TERMINATED
+}
+
 enum ExpenseCategory {
   WATER_BILL
   COMMON_ELECTRICITY
@@ -158,8 +163,9 @@ model PowerSupplyCompany {
   createdAt DateTime      @default(now()) @map("created_at")
   updatedAt DateTime      @updatedAt @map("updated_at")
 
-  buildings     Building[]
-  supplierBills SupplierMasterBill[]
+  buildings        Building[]
+  supplierBills    SupplierMasterBill[]
+  powerConnections BuildingPowerConnection[]
 
   @@index([status])
   @@map("power_supply_companies")
@@ -228,6 +234,7 @@ model Building {
   id              BigInt             @id @default(autoincrement())
   landlordId      BigInt             @map("landlord_id")
   powerCompanyId  BigInt             @map("power_company_id")
+  connectionNumber String            @map("connection_number") @db.VarChar(100) // Currently active connection number
   name            String             @db.VarChar(150)
   addressLine     String             @map("address_line") @db.Text
   city            String             @db.VarChar(100)
@@ -238,15 +245,36 @@ model Building {
   updatedAt       DateTime           @updatedAt @map("updated_at")
 
   // Relationships
-  landlord        User               @relation("LandlordBuildings", fields: [landlordId], references: [id], onDelete: Cascade)
-  powerCompany    PowerSupplyCompany @relation(fields: [powerCompanyId], references: [id], onDelete: Restrict)
-  floors          Floor[]
-  expenses        BuildingExpense[]
-  supplierBills   SupplierMasterBill[]
+  landlord         User                      @relation("LandlordBuildings", fields: [landlordId], references: [id], onDelete: Cascade)
+  powerCompany     PowerSupplyCompany        @relation(fields: [powerCompanyId], references: [id], onDelete: Restrict)
+  floors           Floor[]
+  expenses         BuildingExpense[]
+  supplierBills    SupplierMasterBill[]
+  powerConnections BuildingPowerConnection[]
 
   @@index([landlordId])
   @@index([powerCompanyId])
   @@map("buildings")
+}
+
+model BuildingPowerConnection {
+  id               BigInt                   @id @default(autoincrement())
+  buildingId       BigInt                   @map("building_id")
+  powerCompanyId   BigInt                   @map("power_company_id")
+  connectionNumber String                   @map("connection_number") @db.VarChar(100)
+  startDate        DateTime                 @map("start_date") @db.Date
+  endDate          DateTime?                @map("end_date") @db.Date
+  status           SupplierConnectionStatus @default(ACTIVE)
+  notes            String?                  @db.Text
+  createdAt        DateTime                 @default(now()) @map("created_at")
+
+  building         Building                 @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  powerCompany     PowerSupplyCompany       @relation(fields: [powerCompanyId], references: [id], onDelete: Restrict)
+
+  @@unique([powerCompanyId, connectionNumber])
+  @@index([buildingId, status])
+  @@index([powerCompanyId])
+  @@map("building_power_connections")
 }
 
 model Floor {
@@ -372,26 +400,47 @@ model BuildingExpense {
 }
 
 model SupplierMasterBill {
-  id                 BigInt             @id @default(autoincrement())
-  buildingId         BigInt             @map("building_id")
-  powerCompanyId     BigInt             @map("power_company_id")
-  billCycleStart     DateTime           @map("bill_cycle_start") @db.Date
-  billCycleEnd       DateTime           @map("bill_cycle_end") @db.Date
-  masterBillAmount   Decimal            @map("master_bill_amount") @db.Decimal(10, 2)
-  tariffRatePerUnit  Decimal?           @map("tariff_rate_per_unit") @db.Decimal(8, 2) // e.g. ₹7.00/unit
-  surplusAmount      Decimal?           @default(0.00) @map("surplus_amount") @db.Decimal(10, 2)
-  deficitAmount      Decimal?           @default(0.00) @map("deficit_amount") @db.Decimal(10, 2)
-  amountPaid         Decimal            @default(0.00) @map("amount_paid") @db.Decimal(10, 2)
-  status             PaymentStatus      @default(UNPAID)
-  dueDate            DateTime           @map("due_date") @db.Date
-  paidDate           DateTime?          @map("paid_date")
-  digitalBillDocId   BigInt?            @map("digital_bill_doc_id")
-  createdAt          DateTime           @default(now()) @map("created_at")
+  id                   BigInt             @id @default(autoincrement())
+  buildingId           BigInt             @map("building_id")
+  powerCompanyId       BigInt             @map("power_company_id")
 
-  building           Building           @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  powerCompany       PowerSupplyCompany @relation(fields: [powerCompanyId], references: [id], onDelete: Restrict)
-  digitalBillDoc     DocumentMetadata?  @relation(fields: [digitalBillDocId], references: [id])
+  // Identifiers
+  billSerialNumber     String?            @map("bill_serial_number") @db.VarChar(100)   // Unique invoice/bill number from physical bill
+  connectionNumber     String             @map("connection_number") @db.VarChar(100)    // Consumer account / K-number for this bill
 
+  // Billing Cycle & Dates
+  billCycleStart       DateTime           @map("bill_cycle_start") @db.Date
+  billCycleEnd         DateTime           @map("bill_cycle_end") @db.Date
+  invoiceDate          DateTime?          @map("invoice_date") @db.Date                 // Date utility company issued this bill
+
+  // Consumption & Tariff Rate
+  totalUnitsConsumed   Decimal?           @map("total_units_consumed") @db.Decimal(10, 2) // Total building kWh consumed
+  tariffRatePerUnit    Decimal?           @map("tariff_rate_per_unit") @db.Decimal(8, 2)  // Utility company rate (e.g. ₹7.00/unit)
+
+  // Financial Amounts & Variance
+  masterBillAmount     Decimal            @map("master_bill_amount") @db.Decimal(10, 2)
+  surplusAmount        Decimal?           @default(0.00) @map("surplus_amount") @db.Decimal(10, 2)
+  deficitAmount        Decimal?           @default(0.00) @map("deficit_amount") @db.Decimal(10, 2)
+
+  // Settlement Details
+  amountPaid           Decimal            @default(0.00) @map("amount_paid") @db.Decimal(10, 2)
+  status               PaymentStatus      @default(UNPAID)
+  dueDate              DateTime           @map("due_date") @db.Date
+  paidDate             DateTime?          @map("paid_date")
+  paymentMode          String?            @map("payment_mode") @db.VarChar(50)          // NEFT | UPI | CHEQUE | ONLINE_PORTAL | CASH
+  paymentReference     String?            @map("payment_reference") @db.VarChar(100)   // UTR / cheque number / transaction ID
+
+  // Audit & Documents
+  notes                String?            @db.Text
+  digitalBillDocId     BigInt?            @map("digital_bill_doc_id")
+  createdAt            DateTime           @default(now()) @map("created_at")
+
+  building             Building           @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  powerCompany         PowerSupplyCompany @relation(fields: [powerCompanyId], references: [id], onDelete: Restrict)
+  digitalBillDoc       DocumentMetadata?  @relation(fields: [digitalBillDocId], references: [id])
+
+  @@unique([powerCompanyId, billSerialNumber])                         // Serial number unique per power company
+  @@unique([buildingId, powerCompanyId, billCycleStart, billCycleEnd]) // No duplicate cycle range per building+company
   @@index([buildingId, status])
   @@index([powerCompanyId])
   @@map("supplier_master_bills")

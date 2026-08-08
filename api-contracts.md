@@ -16,28 +16,58 @@
 | `req.params` | Route params coerced & validated (e.g., `z.coerce.number()` for IDs) |
 | File uploads | MIME type + size validated before any processing |
 
-### 0.2 — Standard Validation Error Response (HTTP 400)
+### 0.2 — Universal Error Response Envelopes
 
-All validation failures return this exact shape:
+All non-2xx API responses (excluding raw file streams) MUST strictly conform to the universal error envelope specification detailed in [`docs/error-handling.md`](file:///Users/abdulsamad/Desktop/Projects/my_room_ledger/docs/error-handling.md).
+
+#### Standard Error Response Envelope:
+```json
+{
+  "statusCode": 409,
+  "error": "COMPANY_IN_USE",
+  "message": "Cannot delete 'Uttarakhand Power Corporation Limited (UPCL)' because 3 buildings are currently linked to it.",
+  "metadata": {
+    "companyId": "1",
+    "linkedBuildingCount": 3,
+    "affectedBuildings": []
+  }
+}
+```
+
+#### Field-Level Validation Error Response (HTTP 400 `VALIDATION_ERROR`):
+All validation failures (`ZodValidationPipe`) return field-level details:
 ```json
 {
   "statusCode": 400,
   "error": "VALIDATION_ERROR",
-  "message": "Input validation failed",
+  "message": "Input validation failed. Please correct the highlighted fields.",
   "details": [
-    { "field": "email", "message": "Invalid email address" },
-    { "field": "password", "message": "Password must be at least 8 characters" }
+    { "field": "email", "message": "Invalid email address format" },
+    { "field": "phoneNumber", "message": "Phone number must be 10 digits starting with 6, 7, 8, or 9 for dial code +91 (India)" }
   ]
 }
 ```
 
-### 0.3 — Standard Authentication Error Responses
+### 0.3 — Standard Authentication & System Error Matrix
 
-| HTTP Code | Error Code | Trigger |
-|---|---|---|
-| `401` | `UNAUTHORIZED` | Missing, expired, or invalid JWT access token |
-| `403` | `FORBIDDEN` | Valid JWT but insufficient role for the resource |
-| `429` | `TOO_MANY_REQUESTS` | Rate limit exceeded (100 req/15min; auth: 5/15min) |
+| HTTP Code | Error Code | Trigger | Response Metadata |
+|---|---|---|---|
+| `400` | `VALIDATION_ERROR` | Request body, params, or query fail Zod schema | `details[]` array |
+| `400` | `PAYMENT_EXCEEDS_BALANCE` | Recorded payment exceeds remaining due | `remainingBalance`, `attemptedPayment` |
+| `401` | `UNAUTHORIZED` | Missing, invalid, or expired JWT access token | `{}` |
+| `401` | `INVALID_CREDENTIALS` | Incorrect email/phone or password on login | `{}` |
+| `401` | `TOKEN_EXPIRED` | Expired access token or password reset token | `{}` |
+| `403` | `FORBIDDEN` | Valid JWT but insufficient role or ownership | `{}` |
+| `403` | `MUST_CHANGE_PASSWORD` | Account flagged `mustChangePassword = true` | `{}` |
+| `404` | `NOT_FOUND` | Target entity ID does not exist | `resourceId` |
+| `409` | `DUPLICATE_ENTRY` | Unique constraint violation (email, phone, serial) | `field` |
+| `409` | `COMPANY_IN_USE` | Deleting power company linked to ≥1 buildings | `affectedBuildings[]` |
+| `409` | `PENDING_SUPPLIER_BILLS_EXIST` | Switching supplier with open master bills | `pendingBills[]` |
+| `429` | `TOO_MANY_REQUESTS` | Rate limit exceeded (e.g. 5 failed logins / 15m) | `{}` |
+| `500` | `INTERNAL_SERVER_ERROR` | Unhandled server exception (sanitized) | `{}` |
+
+### 0.6 — Central Error Registry Reference
+> See [`docs/error-handling.md`](file:///Users/abdulsamad/Desktop/Projects/my_room_ledger/docs/error-handling.md) for complete documentation of all 21 error codes, metadata schemas, and status mappings.
 
 ### 0.4 — Global Security Headers (Helmet.js)
 
@@ -119,12 +149,28 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
     "message": "Power supply company deleted successfully."
   }
   ```
-- **Error Response (400 Bad Request / 409 Conflict - When linked to >= 1 building)**:
+- **Error Response (409 Conflict - When linked to ≥ 1 building)**:
   ```json
   {
-    "statusCode": 400,
+    "statusCode": 409,
     "error": "COMPANY_IN_USE",
-    "message": "Cannot delete or deactivate power supply company because 3 buildings are currently linked to it."
+    "message": "Cannot delete or deactivate 'Uttarakhand Power Corporation Limited (UPCL)' because 2 buildings are currently linked to it. Reassign or remove these buildings first.",
+    "metadata": {
+      "companyId": "1",
+      "companyName": "Uttarakhand Power Corporation Limited (UPCL)",
+      "linkedBuildingCount": 2,
+      "affectedBuildings": [
+        {
+          "buildingId": "101",
+          "buildingName": "Sunshine Heights",
+          "landlord": {
+            "landlordId": "10",
+            "fullName": "Rajesh Kumar",
+            "email": "rajesh.landlord@example.com"
+          }
+        }
+      ]
+    }
   }
   ```
 
@@ -411,7 +457,110 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
 
 ---
 
-## 4. Power Supplier (UPCL) Master Bill Endpoints
+## 4. Building, Connection & Power Supplier Master Bill Endpoints
+
+### `POST /api/v1/buildings`
+- **Access**: `LANDLORD` | `ADMIN` | `SUPER_ADMIN`
+- **Request Body**:
+  ```json
+  {
+    "name": "Sunshine Heights",
+    "addressLine": "12 Rajpur Road",
+    "city": "Dehradun",
+    "state": "Uttarakhand",
+    "pincode": "248001",
+    "totalFloors": 4,
+    "powerCompanyId": "1",
+    "connectionNumber": "UPCL-CONN-10023"
+  }
+  ```
+- **Response (201 Created)**:
+  ```json
+  {
+    "buildingId": "101",
+    "name": "Sunshine Heights",
+    "powerCompanyId": "1",
+    "powerCompanyName": "Uttarakhand Power Corporation Limited (UPCL)",
+    "connectionNumber": "UPCL-CONN-10023",
+    "createdAt": "2026-08-08T20:00:00Z"
+  }
+  ```
+
+### `POST /api/v1/buildings/{buildingId}/switch-power-supplier`
+- **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN`
+- **Purpose**: Switch a building's power supply company and connection number. Enforces Zero Open Dues rule.
+- **Request Body**:
+  ```json
+  {
+    "newPowerCompanyId": "2",
+    "newConnectionNumber": "UPPCL-CONN-998822",
+    "effectiveDate": "2026-09-01",
+    "notes": "Switched from UPCL to UPPCL due to commercial tariff revision"
+  }
+  ```
+- **Response (200 OK - Successful Switch)**:
+  ```json
+  {
+    "buildingId": "101",
+    "previousSupplier": {
+      "powerCompanyId": "1",
+      "companyName": "Uttarakhand Power Corporation Limited (UPCL)",
+      "connectionNumber": "UPCL-CONN-10023",
+      "terminatedAt": "2026-08-31"
+    },
+    "newSupplier": {
+      "powerCompanyId": "2",
+      "companyName": "Uttar Pradesh Power Corporation Limited (UPPCL)",
+      "connectionNumber": "UPPCL-CONN-998822",
+      "effectiveFrom": "2026-09-01",
+      "status": "ACTIVE"
+    }
+  }
+  ```
+- **Error Response (409 Conflict - When Unpaid Bills Exist)**:
+  ```json
+  {
+    "statusCode": 409,
+    "error": "PENDING_SUPPLIER_BILLS_EXIST",
+    "message": "Cannot switch power supplier. There are 2 unpaid supplier master bills for the current supplier 'UPCL'. All pending bills must be settled first.",
+    "metadata": {
+      "currentPowerCompanyId": "1",
+      "currentPowerCompanyName": "Uttarakhand Power Corporation Limited (UPCL)",
+      "pendingBillCount": 2,
+      "pendingBills": [
+        { "billId": "501", "masterBillAmount": 28500.00, "dueDate": "2026-07-20", "status": "OVERDUE" },
+        { "billId": "502", "masterBillAmount": 29100.00, "dueDate": "2026-08-20", "status": "UNPAID" }
+      ]
+    }
+  }
+  ```
+
+### `GET /api/v1/buildings/{buildingId}/power-supplier-history`
+- **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN`
+- **Purpose**: Retrieve full historical audit log of power supplier connections for a building.
+- **Response (200 OK)**:
+  ```json
+  [
+    {
+      "connectionId": "12",
+      "powerCompanyId": "2",
+      "companyName": "Uttar Pradesh Power Corporation Limited (UPPCL)",
+      "connectionNumber": "UPPCL-CONN-998822",
+      "startDate": "2026-09-01",
+      "endDate": null,
+      "status": "ACTIVE"
+    },
+    {
+      "connectionId": "1",
+      "powerCompanyId": "1",
+      "companyName": "Uttarakhand Power Corporation Limited (UPCL)",
+      "connectionNumber": "UPCL-CONN-10023",
+      "startDate": "2025-04-01",
+      "endDate": "2026-08-31",
+      "status": "TERMINATED"
+    }
+  ]
+  ```
 
 ### `POST /api/v1/buildings/{buildingId}/supplier-master-bills`
 - **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN`
@@ -419,11 +568,30 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
   ```json
   {
     "powerCompanyId": "1",
+    "connectionNumber": "UPCL-CONN-10023",
+    "billSerialNumber": "UPCL-2026-06-88192",
     "billCycleStart": "2026-06-01",
     "billCycleEnd": "2026-06-30",
+    "invoiceDate": "2026-07-02",
+    "totalUnitsConsumed": 4071.42,
+    "tariffRatePerUnit": 7.00,
     "masterBillAmount": 28500.00,
     "dueDate": "2026-07-20",
+    "notes": "June master bill for Sunshine Heights",
     "digitalBillDocId": "501"
+  }
+  ```
+- **Response (201 Created)**:
+  ```json
+  {
+    "billId": "501",
+    "buildingId": "101",
+    "powerCompanyId": "1",
+    "billSerialNumber": "UPCL-2026-06-88192",
+    "connectionNumber": "UPCL-CONN-10023",
+    "masterBillAmount": 28500.00,
+    "status": "UNPAID",
+    "createdAt": "2026-07-02T10:00:00Z"
   }
   ```
 
@@ -435,6 +603,8 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
   {
     "status": "PAID",
     "paidDate": "2026-08-10T14:00:00Z",
+    "paymentMode": "NEFT",
+    "paymentReference": "NEFT/N1238491029",
     "notes": "Paid via NEFT to UPCL for July bill"
   }
   ```
@@ -444,10 +614,12 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
     "billId": "501",
     "status": "PAID",
     "paidDate": "2026-08-10T14:00:00Z",
+    "paymentMode": "NEFT",
+    "paymentReference": "NEFT/N1238491029",
     "updatedAt": "2026-08-10T14:02:33Z"
   }
   ```
-- **Error**: HTTP 409 `CONFLICT` if bill is already `PAID`.
+- **Error**: HTTP 409 `RESOURCE_ALREADY_PAID` if bill is already `PAID`.
 
 ---
 

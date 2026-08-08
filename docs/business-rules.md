@@ -216,7 +216,35 @@ This document serves as the **single authoritative source of truth for all domai
 - **Admin/Super Admin Management**: Authorized Admins and Super Admins can add new power companies, edit company names, or toggle company status (`ACTIVE` vs. `INACTIVE`).
 - **Referential Integrity Constraint**:
   - A Power Supply Company **CANNOT be deleted or deactivated** if one or more buildings are linked to it in the database (`onDelete: Restrict`).
-  - Attempting to delete or deactivate an in-use company is rejected by the backend with `HTTP 400 COMPANY_IN_USE` or `HTTP 409 CONFLICT`.
+  - Attempting to delete or deactivate an in-use company is rejected by the backend with `HTTP 409 COMPANY_IN_USE` accompanied by a metadata payload listing all linked building names and landlord details.
+
+#### BR-13.4 — Unique Bill Serial Number per Power Company
+- A `billSerialNumber` printed on a utility invoice is unique per power supply company (`@@unique([powerCompanyId, billSerialNumber])`).
+- Attempting to enter a duplicate serial number for the same power company is rejected with `HTTP 409 DUPLICATE_ENTRY`. Null values are ignored.
+
+#### BR-13.5 — Building Connection Number Governance
+- Every building must have an active `connectionNumber` (consumer account / K-number) assigned by its power supply company upon building registration (`Building.connectionNumber`).
+- The connection number remains **constant across all billing cycles** for that power supplier.
+
+#### BR-13.6 — Master Consumption & Room Submeter Cross-Verification
+- A master bill records `totalUnitsConsumed` (building kWh).
+- System allows landlords to cross-verify `Σ(room submeter units consumed) ≤ totalUnitsConsumed`. Any gap represents unmetered common area electricity usage.
+
+#### BR-13.7 — Connection Number Consistency Rule
+- Each building has a **unique connection number** assigned by the power supply company that remains constant across billing cycles for that supplier.
+- The connection number is strictly tied to the specific power supplier.
+
+#### BR-13.8 — Zero Open Dues Invariant on Power Supplier Switch
+- A landlord **CANNOT switch** a building's power supply company if there are any `UNPAID` or `OVERDUE` `SupplierMasterBill` records associated with the current supplier.
+- All pending dues for the previous supplier must be settled (`status = PAID`) or cleared in the system prior to switching.
+- Attempting a switch with open dues is rejected with `HTTP 409 PENDING_SUPPLIER_BILLS_EXIST`, returning metadata containing the list of open bills.
+
+#### BR-13.9 — Supplier Connection Transition & Historical Data Isolation
+- Executing a power supplier switch (`POST /api/v1/buildings/{buildingId}/switch-power-supplier`) triggers:
+  1. The current connection history record (`BuildingPowerConnection`) is closed with `status = TERMINATED` and `endDate = switchDate - 1 day`.
+  2. A new connection history record is created with `status = ACTIVE`, `startDate = switchDate`, the new `powerCompanyId`, and the new `connectionNumber`.
+  3. `Building.powerCompanyId` and `Building.connectionNumber` are updated to the active new supplier.
+- **Strict Data Isolation**: Past `SupplierMasterBill` records remain permanently locked to their original `powerCompanyId` and original `connectionNumber`. Future master bills automatically inherit the new supplier and new connection number. No data bleeding occurs across transitions.
 
 ---
 
@@ -266,5 +294,31 @@ OVERDUE
 - When a landlord settles a `SupplierMasterBill`, they record: `status = PAID` and an optional `paidDate` (defaults to server UTC timestamp if omitted).
 - **No partial payments** are supported for supplier master bills in this phase. The bill is either `UNPAID`, `OVERDUE`, or `PAID`.
 - A `SupplierMasterBill` transitions to `OVERDUE` when `currentDate > SupplierMasterBill.dueDate` and status is `UNPAID`.
+
+---
+
+### BR-15: Backend Error Handling Standards & Uniform Response Envelopes
+
+#### BR-15.1 — Universal Error Envelope Requirement
+- All non-2xx API responses across the entire system MUST conform strictly to the universal error envelope: `{ statusCode, error, message, metadata }`.
+- The `error` field must be a machine-readable SCREAMING_SNAKE_CASE string registered in `docs/error-handling.md`.
+- `metadata` must be a JSON object containing structured contextual details. If no additional detail is required, `metadata` must default to `{}`.
+
+#### BR-15.2 — Field-Level Validation Response Structure
+- Input validation failures (`HTTP 400 VALIDATION_ERROR`) MUST replace `metadata` with a `details` array of field error objects (`[{ field, message }]`).
+- Validation error responses must identify exact failing field names and state the precise validation constraint violated.
+
+#### BR-15.3 — Actionable Error Messages & Security Masking
+- Error `message` strings must clearly state what failed AND what actionable step the client/user should take to resolve the error.
+- Internal stack traces, raw database error strings, SQL queries, or internal filesystem paths must **NEVER** be exposed in API responses.
+
+#### BR-15.4 — Enhanced Conflict Metadata
+- Conflict errors (`HTTP 409`) must include actionable metadata:
+  - `COMPANY_IN_USE`: Contains `affectedBuildings[]` listing linked building IDs, names, and landlord contact details.
+  - `PENDING_SUPPLIER_BILLS_EXIST`: Contains `pendingBills[]` listing open bill IDs, cycle dates, amounts, and statuses blocking a supplier switch.
+
+#### BR-15.5 — HTTP Status Code Uniformity
+- Backend endpoints must adhere strictly to the HTTP status mapping matrix defined in `docs/error-handling.md §5` (`200 OK`, `201 Created`, `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `409 Conflict`, `429 Too Many Requests`, `500 Internal Server Error`).
+
 
 

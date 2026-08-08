@@ -149,18 +149,21 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 
 ## AC-22 — Building & Asset Hierarchy
 
-**Requirements:** FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29
+**Requirements:** FR-22, FR-22a, FR-22b, FR-22c, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29
 
 | ID | Criterion |
 |----|---|
-| **AC-22.1** | A Landlord can create a Building with name, address, city, state, pincode, and mandatory selected `powerCompanyId` (Power Supply Company FK). |
-| **AC-22.2** | A Landlord can update their own Building's name, address, or assigned `powerCompanyId`. |
+| **AC-22.1** | A Landlord can create a Building with name, address, city, state, pincode, selected `powerCompanyId` (Power Supply Company FK), and mandatory active `connectionNumber`. |
+| **AC-22.2** | A Landlord can update their own Building's name, address, city, state, or pincode. |
 | **AC-22.3** | A Landlord can add a Floor to their Building with a floor number and label. |
 | **AC-22.4** | A Landlord can add a Room to a Floor specifying label (`Room XY` format), max occupancy, monthly rent, and bathroom type (`PRIVATE_ATTACHED` or `SHARED_FLOOR`). |
 | **AC-22.5** | A Landlord can add Shared Bathrooms (`Bath XY`) and Shared Toilets (`Toilet XY`) to a Floor. |
 | **AC-22.6** | A single floor can have a mix of private-attached rooms and shared facilities simultaneously. |
 | **AC-22.7** | Attempting to access or modify another landlord's building returns HTTP 403 `FORBIDDEN`. |
-| **AC-22.8** | A Landlord can retrieve the full hierarchy: building → floors → rooms → shared facilities. |
+| **AC-22.8** | A Landlord attempting to switch a building's power supply company (`POST /api/v1/buildings/{id}/switch-power-supplier`) while open (`UNPAID` or `OVERDUE`) master bills exist for the current supplier is rejected with `HTTP 409 PENDING_SUPPLIER_BILLS_EXIST`. Response `metadata.pendingBills[]` lists all open bill IDs, amounts, and statuses. |
+| **AC-22.9** | A Landlord executing a power supplier switch when all master bills for the current supplier are `PAID` succeeds (HTTP 200 OK): current connection record is set to `TERMINATED` with `endDate`, new `BuildingPowerConnection` is created with `status = ACTIVE`, and `Building.powerCompanyId` + `Building.connectionNumber` are updated. |
+| **AC-22.10** | `GET /api/v1/buildings/{buildingId}/power-supplier-history` returns the complete array of active and terminated connection history records for the building, ordered descending by `startDate`. |
+| **AC-22.11** | A Landlord can retrieve the full hierarchy: building → floors → rooms → shared facilities. |
 
 ---
 
@@ -217,7 +220,7 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 | **AC-50.2** | An Admin or Super Admin can create a new power company payload (`name`, `status`), returning HTTP 201 `CREATED`. |
 | **AC-50.3** | An Admin or Super Admin can update an existing power company's name or toggle status between `ACTIVE` and `INACTIVE`. |
 | **AC-50.4** | Deleting or deactivating an unused power company (0 linked buildings) succeeds with HTTP 200/240. |
-| **AC-50.5** | Attempting to delete or deactivate a power company linked to $\ge 1$ building is rejected with HTTP 400 `COMPANY_IN_USE` or HTTP 409 `CONFLICT`. |
+| **AC-50.5** | Attempting to delete or deactivate a power company linked to $\ge 1$ building is rejected with `HTTP 409 COMPANY_IN_USE`. Response `metadata.affectedBuildings[]` contains the building names and landlord details for all linked buildings. |
 
 ---
 
@@ -232,7 +235,10 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 | **AC-45.3** | A generated Electricity Ledger entry has initial status `UNPAID`. |
 | **AC-45.4** | A Landlord can transition Electricity Ledger status: `UNPAID` → `PARTIALLY_PAID` → `PAID` or `OVERDUE`. |
 | **AC-45.5** | Updating an Electricity Ledger status does not change the Room Rent Ledger for the same cycle. |
-| **AC-45.6** | A Landlord can create a Supplier Master Bill entry linked to a selected Power Supply Company, cycle dates, total master bill amount, and due date. |
+| **AC-45.6** | A Landlord can create a Supplier Master Bill entry linked to a selected Power Supply Company, connection number, cycle dates, total master bill amount, due date, optional bill serial number, optional invoice date, and optional total units consumed (kWh). |
+| **AC-45.6a** | Entering a duplicate `billSerialNumber` for the same `powerCompanyId` is rejected with `HTTP 409 DUPLICATE_ENTRY`. |
+| **AC-45.6b** | Entering a second master bill for the same `buildingId` + `powerCompanyId` covering an identical `billCycleStart` + `billCycleEnd` range is rejected with `HTTP 409 DUPLICATE_ENTRY`. |
+| **AC-45.6c** | Marking a `SupplierMasterBill` as `PAID` allows specifying `paymentMode` (`NEFT`, `UPI`, `CHEQUE`, `ONLINE_PORTAL`, `CASH`) and `paymentReference` (UTR/cheque ID), which are persisted and returned in GET responses. |
 | **AC-45.7** | A Landlord can upload a digital power bill (PDF/Image) linked to a Supplier Master Bill; file is encrypted before R2 storage. |
 | **AC-45.8** | Electricity totals collected from tenants are strictly excluded from Net Rental Profit calculations. |
 | **AC-45.9** | A Tenant can retrieve their own Electricity Ledger entries and payment transactions; read-only. |
@@ -322,6 +328,26 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 | **AC-78.4** | String fields with leading/trailing whitespace are trimmed before processing — stored values contain no padding. |
 | **AC-78.5** | An invalid email format in any request body returns HTTP 400 `VALIDATION_ERROR` with field `email`. |
 | **AC-78.6** | A financial date range query where `startDate` is after `endDate` returns HTTP 400 `VALIDATION_ERROR`. |
+
+---
+
+## AC-82 — Backend Error Handling Standards & Universal Envelopes
+
+**Requirements:** FR-82, FR-83, FR-84, FR-85, FR-86, FR-87
+
+| ID | Criterion |
+|----|---|
+| **AC-82.1** | Every non-2xx API response contains exactly the top-level keys: `statusCode`, `error`, `message`, `metadata` (or `details` for validation errors). No unhandled exception leaks internal paths or stack traces. |
+| **AC-82.2** | Validation failures (`HTTP 400 VALIDATION_ERROR`) include a `details` array containing `{ field, message }` objects for every invalid payload field. |
+| **AC-82.3** | A phone number failing DB regex for the selected dial code returns `HTTP 400 VALIDATION_ERROR` with `details[].field = "phoneNumber"` and an actionable message specifying the dial code format required. |
+| **AC-82.4** | A password failing complexity rules (< 8 chars, missing uppercase, missing digit, or missing special character) returns `HTTP 400 VALIDATION_ERROR` with `details[].field = "password"` specifying the unmet requirement. |
+| **AC-82.5** | `DELETE /api/v1/admin/power-companies/{id}` on an in-use power company returns `HTTP 409 COMPANY_IN_USE`; `metadata.linkedBuildingCount` matches DB count; `metadata.affectedBuildings` lists each building ID, name, and landlord email. |
+| **AC-82.6** | Deleting an unused power company (0 linked buildings) succeeds with `HTTP 200 OK`. |
+| **AC-82.7** | `POST /api/v1/ledgers/room-rent/{id}/payments` where `amountPaid` > remaining due returns `HTTP 400 PAYMENT_EXCEEDS_BALANCE` with `metadata.remainingBalance` and `metadata.attemptedPayment`. |
+| **AC-82.8** | Requesting a resource belonging to another landlord returns `HTTP 403 FORBIDDEN` — access is denied regardless of whether the resource exists. |
+| **AC-82.9** | Requesting a non-existent resource ID returns `HTTP 404 NOT_FOUND` with `metadata.resourceId`. |
+| **AC-82.10** | Registering a user with an existing email or phone returns `HTTP 409 DUPLICATE_ENTRY` with `metadata.field`. |
+| **AC-82.11** | Unhandled 500 server errors return `HTTP 500 INTERNAL_SERVER_ERROR` with generic message "An unexpected internal server error occurred. Please contact support."; no stack trace or SQL text is present. |
 
 ---
 

@@ -57,23 +57,37 @@ This document serves as the **single authoritative source of truth for all domai
 
 #### BR-03.1 — Payment Isolation & Net Profit Formula
 - **Room Rent** and **Electricity Bill** are **independent financial entities**.
-- **Pass-Through Cost Model**: Electricity payments are **NOT revenue or profit**. All collections are ultimately paid to the external power supplier (e.g., UPCL).
-- **Landlord Profit Formula**:
+- **Pass-Through Cost Model**: Electricity payments collected from tenants are **NOT revenue or profit**. All tenant electricity collections are held in a pass-through ledger intended to offset external power supplier master bills (e.g., UPCL, UPPCL).
+- **Landlord Net Profit Invariant**:
   $$\text{Net Profit} = (\text{Room Rent Collected}) - (\text{Building Operating Expenses})$$
-  *(Electricity collections are excluded from net profit calculations).*
+  *(Electricity collections, electricity surplus, and electricity deficits are strictly excluded from net rental profit calculations).*
 
-#### BR-03.2 — Dual-Flow Payment Tracking
-- **Flow 1 (Tenant $\rightarrow$ Landlord)**: Room submeter collection. Formula: $\text{Total Bill} = \text{Units Consumed} \times \text{Rate per Unit}$. Status: `UNPAID`, `PARTIALLY_PAID`, `PAID`, `OVERDUE`.
-- **Flow 2 (Landlord $\rightarrow$ Power Supplier)**: Master building bill (e.g., UPCL). Stores supplier name, total master bill amount, payment status, and digital bill attachment (PDF/Image).
+#### BR-03.2 — Per-Unit Rate Differential & Common Electricity Load
+- **Per-Unit Rate Differential**: Landlords charge tenants a per-unit electricity rate (e.g., ₹8/unit on room submeters) that may differ from the utility company's master tariff rate (e.g., ₹7/unit).
+- **Common Area Electricity Usage**:
+  - Unmetered or common building electricity consumption (e.g., hallway/stairwell lighting, common area sanitation lighting, submersible water motors/pumps) is **NOT billed to individual tenants**.
+  - Common electricity costs are paid by the landlord from:
+    1. **Electricity Collection Surplus** (if collections exceed supplier master bill), OR
+    2. **Landlord Rental Income** (if collections result in a deficit), logged as a `WATER_MOTOR_ELECTRICITY` or `COMMON_ELECTRICITY` Building Operating Expense.
 
-#### BR-03.3 — Electricity Reconciliation & Variance Audit
-- System tracks and compares **Tenant Electricity Collected** vs. **Power Supplier Master Bill Amount** for each billing cycle, monthly, and yearly (Indian Financial Year: April 1 – March 31).
-- **Reconciliation Formula**:
+#### BR-03.3 — Dynamic Billing Period & 3-Scenario Reconciliation
+- **Dynamic Utility Billing Cycle**: Billing periods for electricity pass-through are dynamic, following the power supply company's bill cycle dates (not restricted to calendar months).
+- **3-Scenario Reconciliation Ledger**:
   $$\text{Electricity Variance} = (\text{Tenant Electricity Collected}) - (\text{Supplier Master Bill Amount})$$
-- **Surplus ($\text{Variance} > 0$)**: Extra funds collected from tenants over the master bill.
-- **Deficit / Shortfall ($\text{Variance} < 0$)**: Under-collected from tenants; landlord paying out-of-pocket.
-- **Balanced ($\text{Variance} = 0$)**: Perfect match between collections and supplier billing.
-- **Invariant Rule**: Updating Room Rent status to `PAID` MUST NEVER alter Electricity Bill status, and vice versa.
+  1. **Deficit Case (Loss / Landlord Contribution, $\text{Variance} < 0$)**:
+     - Occurs when tenant submeter collections are lower than the master bill (e.g., Collections ₹4,000 vs. Utility Bill ₹5,000 $\rightarrow$ Deficit ₹1,000).
+     - Deficit is paid by the landlord and recorded as a landlord out-of-pocket contribution.
+     - **Strict Invariant**: Tracked separately and **NEVER merged into Net Rental Profit**.
+  2. **Surplus Case (Extra Savings, $\text{Variance} > 0$)**:
+     - Occurs when tenant submeter collections exceed the master bill (e.g., Collections ₹4,500 vs. Utility Bill ₹3,500 $\rightarrow$ Surplus ₹1,000).
+     - Recorded as "Extra Savings" for the building/landlord.
+     - **Strict Invariant**: Tracked separately and **NEVER added to Net Rental Profit**.
+  3. **Break-Even Case ($\text{Variance} = 0$)**:
+     - Tenant collections exactly match the master bill. No surplus or deficit recorded.
+
+#### BR-03.4 — Strict Separation Invariants
+- Updating Room Rent status to `PAID` MUST NEVER alter Electricity Bill status, and vice versa.
+- All dashboards, reports, and API responses MUST present Rental Income, Electricity Surplus, and Electricity Deficit as distinct, un-merged financial metrics.
 
 ---
 
@@ -178,3 +192,79 @@ This document serves as the **single authoritative source of truth for all domai
 - **Frontend UX Validation**: Frontend runs matching Zod client validation for instant visual feedback.
 - **DB-Managed Country Codes**: All country codes, dial codes (`+91`), flags (`🇮🇳`), and regex patterns (`^[6-9]\d{9}$`) stored in `country_codes` database table and served via `GET /api/v1/meta/country-codes`.
 - **Zero Frontend Hardcoding**: Frontend MUST NOT hardcode regex patterns or country lists.
+
+---
+
+### BR-13: Power Supply Company Management & Referential Integrity Governance
+
+#### BR-13.1 — Database-Driven Power Companies Registry & Seed Data
+- All power utility companies are managed dynamically in the PostgreSQL database (`power_supply_companies` table).
+- **Initial Pre-Seeded Companies**:
+  1. Uttarakhand Power Corporation Limited (UPCL)
+  2. Uttar Pradesh Power Corporation Limited (UPPCL)
+  3. Reliance Power Ltd
+  4. Adani Power Ltd
+  5. Tata Power Company Limited (TPCL)
+  6. National Thermal Power Corporation (NTPC)
+
+#### BR-13.2 — Mandatory Building Linkage
+- When registering or modifying a Building, the landlord **MUST select a Power Supply Company** from the active company list via foreign key (`power_company_id`).
+- Different buildings under the same or different landlords can be linked to different power supply companies.
+
+
+#### BR-13.3 — Admin Management & Deletion Constraint
+- **Admin/Super Admin Management**: Authorized Admins and Super Admins can add new power companies, edit company names, or toggle company status (`ACTIVE` vs. `INACTIVE`).
+- **Referential Integrity Constraint**:
+  - A Power Supply Company **CANNOT be deleted or deactivated** if one or more buildings are linked to it in the database (`onDelete: Restrict`).
+  - Attempting to delete or deactivate an in-use company is rejected by the backend with `HTTP 400 COMPANY_IN_USE` or `HTTP 409 CONFLICT`.
+
+---
+
+### BR-14: Partial Payment Tracking & Multi-Cycle Balance Accumulation
+
+#### BR-14.1 — Payment Transaction Audit Log
+- Each payment event (partial or full) against a `RoomRentLedger` or `ElectricityLedger` is recorded as an immutable `PaymentTransaction` row.
+- The ledger stores `amountPaid` = running sum of all associated `PaymentTransaction.amountPaid` values for that ledger.
+- **Immutability Invariant**: Once recorded, a `PaymentTransaction` row is **never mutated or deleted**. Corrections require a compensating transaction (future enhancement).
+
+#### BR-14.2 — Ledger Status State Machine
+```
+UNPAID
+  ├─(partial payment: 0 < amountPaid < amount)──→ PARTIALLY_PAID
+  └─(full payment: amountPaid ≥ amount)──────────→ PAID
+
+PARTIALLY_PAID
+  └─(additional payment: amountPaid ≥ amount)────→ PAID
+
+UNPAID / PARTIALLY_PAID
+  └─(currentDate > dueDate)──────────────────────→ OVERDUE
+
+OVERDUE
+  └─(full settlement: amountPaid ≥ amount)───────→ PAID  (retroactive)
+```
+- **`dueDate`** = `BillingCycle.cycleEndDate` for both Room Rent and Electricity ledgers.
+- **Strict Invariant**: A landlord cannot manually force status to `PAID` while `amountPaid < amount`. Status is driven exclusively by payment math and the due date rule.
+
+#### BR-14.3 — OVERDUE Definition (Simplified)
+- A ledger transitions to `OVERDUE` when `currentDate > BillingCycle.cycleEndDate` and its status is still `UNPAID` or `PARTIALLY_PAID`.
+- **No grace period is tracked in the system.** Grace arrangements between landlord and tenant are verbal contracts and outside system scope.
+- An `OVERDUE` ledger can still receive further payments. On full settlement (`amountPaid ≥ amount`), status transitions to `PAID`.
+
+#### BR-14.4 — Multi-Cycle Balance Accumulation
+- Pending balances are **NOT physically carried forward** as new ledger rows. Each billing cycle's `RoomRentLedger` / `ElectricityLedger` independently tracks its own `amount` and `amountPaid`.
+- **Total outstanding** for a room is computed dynamically:
+  $$\text{Total Outstanding} = \sum_{\text{non-PAID cycles}} (\text{amount} - \text{amountPaid})$$
+- The API and UI must surface both **per-cycle** pending amounts and the **total accumulated outstanding** balance.
+
+#### BR-14.5 — Payment Date Recording
+- Every `PaymentTransaction` has a `paymentDate` field representing the actual date/time the payment occurred.
+- If the landlord supplies an explicit date/time, that value is stored.
+- If omitted, the system defaults `paymentDate` to the server's current UTC timestamp at the moment the API call is processed.
+- `recordedAt` is always the server creation timestamp and is immutable regardless of user input.
+
+#### BR-14.6 — Supplier Master Bill Settlement (Single Payment)
+- When a landlord settles a `SupplierMasterBill`, they record: `status = PAID` and an optional `paidDate` (defaults to server UTC timestamp if omitted).
+- **No partial payments** are supported for supplier master bills in this phase. The bill is either `UNPAID`, `OVERDUE`, or `PAID`.
+- A `SupplierMasterBill` transitions to `OVERDUE` when `currentDate > SupplierMasterBill.dueDate` and status is `UNPAID`.
+
+

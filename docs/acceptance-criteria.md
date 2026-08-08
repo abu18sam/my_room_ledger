@@ -153,8 +153,8 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 
 | ID | Criterion |
 |----|---|
-| **AC-22.1** | A Landlord can create a Building with name, address, city, state, pincode, and power supplier name. |
-| **AC-22.2** | A Landlord can update their own Building's name or address. |
+| **AC-22.1** | A Landlord can create a Building with name, address, city, state, pincode, and mandatory selected `powerCompanyId` (Power Supply Company FK). |
+| **AC-22.2** | A Landlord can update their own Building's name, address, or assigned `powerCompanyId`. |
 | **AC-22.3** | A Landlord can add a Floor to their Building with a floor number and label. |
 | **AC-22.4** | A Landlord can add a Room to a Floor specifying label (`Room XY` format), max occupancy, monthly rent, and bathroom type (`PRIVATE_ATTACHED` or `SHARED_FLOOR`). |
 | **AC-22.5** | A Landlord can add Shared Bathrooms (`Bath XY`) and Shared Toilets (`Toilet XY`) to a Floor. |
@@ -182,7 +182,7 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 
 ## AC-36 — Rent Cycle & Room Rent Ledger
 
-**Requirements:** FR-36, FR-37, FR-38, FR-39, FR-40, FR-41, FR-42, FR-43, FR-44
+**Requirements:** FR-36, FR-37, FR-38, FR-39, FR-40, FR-41, FR-41a, FR-41b, FR-41c, FR-42, FR-43, FR-44
 
 | ID | Criterion |
 |----|---|
@@ -194,29 +194,56 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 | **AC-36.6** | A generated Billing Cycle produces a Room Rent Ledger entry with status `UNPAID`. |
 | **AC-36.7** | A Landlord can transition Rent Ledger status: `UNPAID` → `PARTIALLY_PAID` → `PAID` or `OVERDUE`. |
 | **AC-36.8** | Updating a Rent Ledger status does not change the Electricity Ledger for the same cycle — verified by checking both records before and after. |
-| **AC-36.9** | A Landlord can record payment method (`UPI`, `CASH`, `BANK_TRANSFER`) and transaction reference on a Rent Ledger entry. |
-| **AC-36.10** | A Tenant can retrieve their own Rent Ledger entries; status and amounts are read-only. |
+| **AC-36.9** | A Landlord can record payment method (`UPI`, `CASH`, `BANK_TRANSFER`) and transaction reference on a PaymentTransaction entry. |
+| **AC-36.10** | A Tenant can retrieve their own Rent Ledger entries and associated payment transactions; all data is read-only. |
+| **AC-36.11** | Recording a payment of ₹1,000 against a ₹2,500 rent ledger transitions status to `PARTIALLY_PAID` and sets `amountPaid = 1000.00`. |
+| **AC-36.12** | Recording a second payment of ₹1,500 against the same ledger transitions status to `PAID`, sets `amountPaid = 2500.00`, and populates `paidDate` with current UTC timestamp. |
+| **AC-36.13** | Attempting to record a payment where `amountPaid ≤ 0` returns HTTP 400 `VALIDATION_ERROR`. |
+| **AC-36.14** | If `paymentDate` is omitted from the payment request body, the system defaults it to the UTC timestamp of the API call (`recordedAt`). |
+| **AC-36.15** | Given `cycleEndDate = 2026-08-05`, a ledger with status `UNPAID` or `PARTIALLY_PAID` transitions to `OVERDUE` when `currentDate > 2026-08-05`. |
+| **AC-36.16** | An `OVERDUE` ledger that subsequently receives a full payment (`amountPaid ≥ amount`) transitions to `PAID`. |
+| **AC-36.17** | `GET /api/v1/rooms/{roomId}/outstanding-balance` returns a `totalOutstanding` field equal to `SUM(amount − amountPaid)` across all non-`PAID` ledger entries, plus a per-cycle breakdown. |
+| **AC-36.18** | `GET /api/v1/ledgers/room-rent/{ledgerId}/payments` returns all payment transactions for the ledger in ascending `paymentDate` order. |
 
 ---
 
-## AC-45 — Electricity Pass-Through Model
+## AC-50 — Power Supply Companies Management
 
-**Requirements:** FR-45, FR-46, FR-47, FR-48, FR-49, FR-50, FR-51, FR-52, FR-53
+**Requirements:** FR-50a, FR-50b, FR-50c, FR-50d, FR-50e
 
 | ID | Criterion |
 |----|---|
-| **AC-45.1** | A Landlord can create an Electricity Ledger entry for a room with units consumed, rate per unit, and billing cycle dates. |
-| **AC-45.2** | The system auto-calculates `Total Bill = Units Consumed × Rate per Unit`; the client-supplied total (if any) is ignored and overwritten by the calculation. |
+| **AC-50.1** | `GET /api/v1/meta/power-companies` returns all active power companies pre-seeded in DB (UPCL, UPPCL, Reliance, Adani, TPCL, NTPC). |
+| **AC-50.2** | An Admin or Super Admin can create a new power company payload (`name`, `status`), returning HTTP 201 `CREATED`. |
+| **AC-50.3** | An Admin or Super Admin can update an existing power company's name or toggle status between `ACTIVE` and `INACTIVE`. |
+| **AC-50.4** | Deleting or deactivating an unused power company (0 linked buildings) succeeds with HTTP 200/240. |
+| **AC-50.5** | Attempting to delete or deactivate a power company linked to $\ge 1$ building is rejected with HTTP 400 `COMPANY_IN_USE` or HTTP 409 `CONFLICT`. |
+
+---
+
+## AC-45 — Electricity Pass-Through Model & Rate Differential
+
+**Requirements:** FR-45, FR-46, FR-47, FR-48, FR-48a, FR-49, FR-50, FR-51, FR-52, FR-52a, FR-52b, FR-52c, FR-52d, FR-53
+
+| ID | Criterion |
+|----|---|
+| **AC-45.1** | A Landlord can create an Electricity Ledger entry for a room with units consumed, landlord rate per unit (e.g. ₹8/unit), and billing cycle dates. |
+| **AC-45.2** | The system auto-calculates `Room Bill = Units Consumed × Landlord Rate per Unit`; client-supplied total is overwritten. |
 | **AC-45.3** | A generated Electricity Ledger entry has initial status `UNPAID`. |
 | **AC-45.4** | A Landlord can transition Electricity Ledger status: `UNPAID` → `PARTIALLY_PAID` → `PAID` or `OVERDUE`. |
-| **AC-45.5** | Updating an Electricity Ledger status does not change the Room Rent Ledger for the same cycle — both records verified before and after. |
-| **AC-45.6** | A Landlord can create a Supplier Master Bill entry with supplier name, cycle dates, total amount, and due date. |
-| **AC-45.7** | A Landlord can upload a digital power bill (PDF/Image) linked to a Supplier Master Bill; the file is encrypted before R2 storage. |
-| **AC-45.8** | Electricity totals collected from tenants do NOT appear in the Net Profit or revenue calculations. |
-| **AC-45.9** | A Tenant can retrieve their own Electricity Ledger entries; read-only. |
-| **AC-45.10** | Given tenant electricity collections $C$ and power supplier master bill amount $B$ for a billing period/month/year, the system computes `Variance = C - B`. |
-| **AC-45.11** | Given `Variance > 0`, the system categorizes the reconciliation status as `SURPLUS` and reports the exact over-collected surplus amount. |
-| **AC-45.12** | Given `Variance < 0`, the system categorizes the reconciliation status as `DEFICIT` and reports the exact under-collected deficit amount (landlord out-of-pocket loss). Given `Variance == 0`, status is `BALANCED`. |
+| **AC-45.5** | Updating an Electricity Ledger status does not change the Room Rent Ledger for the same cycle. |
+| **AC-45.6** | A Landlord can create a Supplier Master Bill entry linked to a selected Power Supply Company, cycle dates, total master bill amount, and due date. |
+| **AC-45.7** | A Landlord can upload a digital power bill (PDF/Image) linked to a Supplier Master Bill; file is encrypted before R2 storage. |
+| **AC-45.8** | Electricity totals collected from tenants are strictly excluded from Net Rental Profit calculations. |
+| **AC-45.9** | A Tenant can retrieve their own Electricity Ledger entries and payment transactions; read-only. |
+| **AC-45.10** | Given tenant electricity collections $C$ and power supplier master bill amount $B$ for a billing period, system computes `Variance = C - B`. |
+| **AC-45.11** | Given `Variance > 0` (e.g., Collection ₹4,500 vs Bill ₹3,500 $\rightarrow$ Surplus ₹1,000), status is `SURPLUS` ("Extra Savings"), reported separately from Net Rental Profit. |
+| **AC-45.12** | Given `Variance < 0` (e.g., Collection ₹4,000 vs Bill ₹5,000 $\rightarrow$ Deficit ₹1,000), status is `DEFICIT` ("Landlord Out-of-Pocket Contribution"), reported separately from Net Rental Profit. Given `Variance == 0`, status is `BALANCED`. |
+| **AC-45.13** | Unmetered common electricity consumption (common lighting, submersible water motors) is recorded as a `WATER_MOTOR_ELECTRICITY` or `COMMON_ELECTRICITY` operating expense. |
+| **AC-45.14** | Recording a partial electricity payment of ₹800 against a ₹1,200 bill transitions status to `PARTIALLY_PAID` and sets `amountPaid = 800.00`. |
+| **AC-45.15** | Recording a subsequent ₹400 electricity payment transitions status to `PAID` and sets `amountPaid = 1200.00`, and populates `paidDate`. |
+| **AC-45.16** | A Landlord can mark a `SupplierMasterBill` as `PAID`; if `paidDate` is omitted from the request, the system records the current UTC timestamp. |
+| **AC-45.17** | Attempting to re-mark an already-`PAID` `SupplierMasterBill` as `PAID` is rejected with HTTP 409 `CONFLICT` (idempotency guard). |
 
 ---
 
@@ -227,7 +254,7 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 | ID | Criterion |
 |----|---|
 | **AC-54.1** | A Landlord can log an expense with category, title, amount, and expense date. |
-| **AC-54.2** | Expense category must be one of: `WATER_BILL`, `MAINTENANCE`, `REPAIRS`, `SECURITY`, `CLEANING`, `PROPERTY_TAX`, `MISCELLANEOUS`. Invalid category returns HTTP 400 `VALIDATION_ERROR`. |
+| **AC-54.2** | Expense category must be one of: `WATER_BILL`, `COMMON_ELECTRICITY`, `WATER_MOTOR_ELECTRICITY`, `MAINTENANCE`, `REPAIRS`, `SECURITY`, `CLEANING`, `PROPERTY_TAX`, `MISCELLANEOUS`. Invalid category returns HTTP 400 `VALIDATION_ERROR`. |
 | **AC-54.3** | A Landlord can retrieve all expenses for a building, optionally filtered by category and/or date range. |
 | **AC-54.4** | Building expenses are included in the Net Profit calculation: `Net Profit = Rent Collected − Operating Expenses`. |
 
@@ -241,11 +268,11 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 |----|---|
 | **AC-58.1** | A Landlord can retrieve their own Revenue Dashboard data for a single building. |
 | **AC-58.2** | A Landlord can retrieve a Portfolio-level rollup across all their buildings. |
-| **AC-58.3** | Dashboard response includes: total rent collected, operating expenses, net profit, total electricity collected from tenants, total supplier bill amount, **electricity reconciliation variance**, **reconciliation status (`SURPLUS` | `DEFICIT` | `BALANCED`)**, pending dues, and occupancy rate. |
+| **AC-58.3** | Dashboard response includes explicit separate fields for: total rent collected, operating expenses, **net rental profit**, total tenant electricity collected, total supplier utility bill, **electricity surplus (extra savings)**, **electricity deficit (landlord out-of-pocket)**, reconciliation status (`SURPLUS` \| `DEFICIT` \| `BALANCED`), pending dues, and occupancy rate. |
 | **AC-58.4** | Dashboard results filtered by Monthly period return data for only that calendar month. |
 | **AC-58.5** | Dashboard results filtered by Indian Financial Year return data for April 1 of year Y through March 31 of year Y+1. |
 | **AC-58.6** | Dashboard results filtered by custom date range return data within those exact dates (inclusive). |
-| **AC-58.7** | Historical trend data (multi-year) is available for revenue, expenses, and occupancy. |
+| **AC-58.7** | Historical trend data (multi-year) is available for revenue, expenses, occupancy, and separate electricity surplus/deficit trend lines. |
 | **AC-58.8** | A Tenant attempting to access any dashboard endpoint receives HTTP 403 `FORBIDDEN` — no data is returned. |
 | **AC-58.9** | An Admin can retrieve Level 3 (per-landlord) aggregated data for any landlord in the system. |
 | **AC-58.10** | A Super Admin can retrieve Level 4 (system-wide) platform metrics. |

@@ -146,8 +146,8 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 | ID | Requirement | Source |
 |----|---|---|
-| **FR-22** | A **Landlord** can create a new **Building** (name, address, city, state, pincode, power supplier). | MASTER Rule 5 |
-| **FR-23** | A Landlord can update their own Building's details. | MASTER Rule 5 |
+| **FR-22** | A **Landlord** can create a new **Building** (name, address, city, state, pincode, selected **Power Supply Company** via `powerCompanyId`). | MASTER Rule 5, BR-13 |
+| **FR-23** | A Landlord can update their own Building's details (including changing the assigned Power Supply Company). | MASTER Rule 5, BR-13 |
 | **FR-24** | A Landlord can add **Floors** to a Building (floor number, label). | MASTER Rule 5 |
 | **FR-25** | A Landlord can add **Rooms** to a Floor, specifying: room label, max occupancy, monthly rent amount, and bathroom type (`PRIVATE_ATTACHED` or `SHARED_FLOOR`). | MASTER Rule 5, 6 |
 | **FR-26** | A Landlord can add **Shared Bathrooms** and **Shared Toilets** to a Floor with standardized labels (`Bath XY`, `Toilet XY`). | MASTER Rule 6, 7 |
@@ -179,54 +179,71 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | **FR-38** | A Landlord can **generate a Billing Cycle** for a room, providing cycle start and end dates. | MASTER Rule 8 |
 | **FR-39** | On billing cycle generation, the system **locks an immutable Tenancy Snapshot** capturing all active tenants in that room. Subsequent tenant check-outs do not alter historical snapshots. | MASTER Rule 8 |
 | **FR-40** | Each billing cycle produces an independent **Room Rent Ledger** entry per room with status `UNPAID`. | MASTER Rule 3 |
-| **FR-41** | A Landlord can update Room Rent Ledger payment status: `UNPAID` → `PARTIALLY_PAID` → `PAID` or `OVERDUE`. | MASTER Rule 3 |
+| **FR-41** | A Landlord can record a **payment transaction** against a Room Rent Ledger (partial or full), supplying: `amountPaid`, optional `paymentDate` (defaults to server UTC timestamp), `paymentMethod` (`UPI`, `CASH`, `BANK_TRANSFER`), optional `transactionReference`, and optional `notes`. | BR-14.1 |
+| **FR-41a** | After each payment transaction, the system auto-updates `RoomRentLedger.amountPaid` (running sum) and transitions `status`: `UNPAID` / `PARTIALLY_PAID` → `PARTIALLY_PAID` (if 0 < paid < amount) or `PAID` (if paid ≥ amount). | BR-14.2 |
+| **FR-41b** | System transitions a Room Rent Ledger to `OVERDUE` when `currentDate > BillingCycle.cycleEndDate` and status is `UNPAID` or `PARTIALLY_PAID`. No grace period. | BR-14.3 |
+| **FR-41c** | API provides a **total outstanding balance** endpoint for a room: `SUM(amount − amountPaid)` across all non-`PAID` ledger entries (Rent + Electricity), with a per-cycle breakdown. | BR-14.4 |
 | **FR-42** | Updating Room Rent status **must never** alter the Electricity Ledger status for the same cycle — ledgers are fully independent. | MASTER Rule 3 |
-| **FR-43** | A Landlord can record payment details: amount paid, payment date, method (`UPI`, `CASH`, `BANK_TRANSFER`), and transaction reference. | Stage 01 scope |
-| **FR-44** | A Tenant can view their own Room Rent Ledger history (read-only). | MASTER Rule 1 |
+| **FR-43** | *(Superseded by FR-41)* Payment metadata (`paymentMethod`, `transactionReference`, `paymentDate`) is now recorded per `PaymentTransaction` row, not stored directly on the ledger. | BR-14.1 |
+| **FR-44** | A Tenant can view their own Room Rent Ledger history and individual payment transactions (read-only). | MASTER Rule 1 |
 
 ---
 
-### 3.7 Electricity Billing — Pass-Through Model
+### 3.7 Power Supply Companies Management
 
 | ID | Requirement | Source |
 |----|---|---|
-| **FR-45** | Each room has an independent **electricity submeter**. The Landlord inputs: units consumed, billing cycle dates, and rate per unit (₹/unit). | MASTER Rule 3 |
-| **FR-46** | The system **auto-calculates** Total Electricity Bill: `Total Bill = Units Consumed × Rate per Unit`. | MASTER Rule 3 |
-| **FR-47** | Each billing cycle produces an independent **Electricity Ledger** entry per room with status `UNPAID`. | MASTER Rule 3 |
-| **FR-48** | A Landlord can update Electricity Ledger payment status: `UNPAID` → `PARTIALLY_PAID` → `PAID` or `OVERDUE`. | MASTER Rule 3 |
-| **FR-49** | Updating Electricity Ledger status **must never** alter Room Rent Ledger status — fully isolated. | MASTER Rule 3 |
-| **FR-50** | A Landlord can record the **Power Supplier (UPCL) Master Bill** per billing period: supplier name, bill cycle dates, total amount, due date, payment status. | MASTER Rule 3 |
-| **FR-51** | A Landlord can upload the **digital power bill (PDF/Image)** for the supplier master bill. Encrypted AES-256 GCM before Cloudflare R2 storage. | MASTER Rule 3, 10 |
-| **FR-52** | Electricity collections from tenants are **never counted** as landlord revenue or profit. They appear in pass-through tracking only. | MASTER Rule 3 |
-| **FR-52a** | The system must track **monthly and yearly (IFY) total electricity collected from tenants** across all rooms vs. total master bill amount payable to the power company per billing cycle. | MASTER Rule 3, 4 |
-| **FR-52b** | The system must auto-calculate **Electricity Variance**: `Electricity Variance = Tenant Electricity Collected − Power Supplier Master Bill Amount`. | MASTER Rule 3 |
-| **FR-52c** | The system must categorize and display reconciliation status as **SURPLUS** (extra collected funds), **DEFICIT** (under-collected, landlord paying out-of-pocket), or **BALANCED** (exact match between collections and master bill). | MASTER Rule 3 |
-| **FR-53** | A Tenant can view their own Electricity Ledger entries (read-only). | MASTER Rule 1 |
+| **FR-50a** | System database pre-seeds a central registry of **Power Supply Companies** (`power_supply_companies` table): UPCL, UPPCL, Reliance Power Ltd, Adani Power Ltd, TPCL, NTPC. | BR-13.1 |
+| **FR-50b** | An API endpoint (`GET /api/v1/meta/power-companies`) serves the list of active power supply companies to populate frontend Building creation/edit dropdowns. | BR-13.1 |
+| **FR-50c** | An **Admin** or **Super Admin** can create a new power company, update existing company names, or toggle status (`ACTIVE` / `INACTIVE`). | BR-13.3 |
+| **FR-50d** | An Admin/Super Admin can **delete or deactivate** a power supply company **ONLY IF** zero buildings are linked to it. | BR-13.3 |
+| **FR-50e** | If an Admin attempts to delete or deactivate a power company linked to $\ge 1$ building, the request is rejected with `HTTP 400 COMPANY_IN_USE` or `HTTP 409 CONFLICT`. | BR-13.3 |
 
 ---
 
-### 3.8 Building Operating Expenses
+### 3.8 Electricity Billing — Pass-Through Model & Rate Differential
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-45** | Each room has an independent **electricity submeter**. Landlord inputs: units consumed, billing cycle dates, and landlord rate per unit (e.g. ₹8/unit). | MASTER Rule 3, BR-03.2 |
+| **FR-46** | System auto-calculates Room Electricity Bill: `Room Elec Bill = Units Consumed × Landlord Rate per Unit`. | MASTER Rule 3 |
+| **FR-47** | Each billing cycle produces an independent **Electricity Ledger** entry per room with status `UNPAID`. | MASTER Rule 3 |
+| **FR-48** | A Landlord can record a **payment transaction** against an Electricity Ledger (partial or full), supplying: `amountPaid`, optional `paymentDate` (defaults to server UTC timestamp), `paymentMethod`, optional `transactionReference`, and optional `notes`. | BR-14.1 |
+| **FR-48a** | After each electricity payment transaction, the system auto-updates `ElectricityLedger.amountPaid` and transitions `status` using the same state machine as Room Rent (BR-14.2). | BR-14.2 |
+| **FR-49** | Updating Electricity Ledger status **must never** alter Room Rent Ledger status — fully isolated. | MASTER Rule 3 |
+| **FR-50** | Landlord records a **Power Supplier Master Bill** per billing period: selected Power Supply Company, bill cycle dates, total master bill amount, due date. Landlord can subsequently mark the bill `PAID` with an optional `paidDate` (defaults to server UTC timestamp if omitted). No partial payments for supplier bills. | BR-03.3, BR-13, BR-14.6 |
+| **FR-51** | Landlord can upload **digital power bill (PDF/Image)** for supplier bill. AES-256 GCM encrypted before Cloudflare R2 storage. | MASTER Rule 3, 10 |
+| **FR-52** | Electricity collections from tenants are **never counted** as landlord revenue or profit. Excluded from Net Rental Profit formula. | BR-03.1 |
+| **FR-52a** | System tracks **monthly and yearly (IFY) total tenant electricity collected** across all rooms vs. total master supplier bill amount payable per billing period. | BR-03.3, BR-04 |
+| **FR-52b** | System auto-calculates **Electricity Variance**: `Electricity Variance = Tenant Electricity Collected − Supplier Master Bill Amount`. | BR-03.3 |
+| **FR-52c** | System categorizes and displays 3 reconciliation outcomes: **SURPLUS** (Extra Savings when Collection > Master Bill), **DEFICIT** (Landlord Loss / Out-of-Pocket when Collection < Master Bill), and **BREAK_EVEN** (Collection = Master Bill). | BR-03.3 |
+| **FR-52d** | Unmetered common electricity usage (common lighting, submersible water motor pumps) is paid from surplus or landlord rental income and tracked under Building Operating Expenses (`WATER_MOTOR_ELECTRICITY` / `COMMON_ELECTRICITY`). | BR-03.2 |
+| **FR-53** | A Tenant can view their own Electricity Ledger entries and individual payment transactions (read-only). | MASTER Rule 1 |
+
+---
+
+### 3.9 Building Operating Expenses
 
 | ID | Requirement | Source |
 |----|---|---|
 | **FR-54** | A Landlord can log a **Building Operating Expense**: category, title, amount (₹), expense date, and optional notes. | MASTER Rule 4 |
-| **FR-55** | Expense categories: `WATER_BILL`, `MAINTENANCE`, `REPAIRS`, `SECURITY`, `CLEANING`, `PROPERTY_TAX`, `MISCELLANEOUS`. | MASTER Rule 4 |
+| **FR-55** | Expense categories: `WATER_BILL`, `COMMON_ELECTRICITY`, `WATER_MOTOR_ELECTRICITY`, `MAINTENANCE`, `REPAIRS`, `SECURITY`, `CLEANING`, `PROPERTY_TAX`, `MISCELLANEOUS`. | MASTER Rule 4, BR-03.2 |
 | **FR-56** | A Landlord can view all expenses for a building, filterable by category and date range. | MASTER Rule 4 |
 | **FR-57** | Operating Expenses are factored into the **Net Profit formula**: `Net Profit = Rent Collected − Operating Expenses`. | MASTER Rule 3, 4 |
 
 ---
 
-### 3.9 Revenue Dashboard & P&L Analytics
+### 3.10 Revenue Dashboard & P&L Analytics
 
 | ID | Requirement | Source |
 |----|---|---|
 | **FR-58** | A **Landlord** can view a Revenue Dashboard scoped strictly to **their own buildings**. | MASTER Rule 1, 4 |
-| **FR-59** | The dashboard displays: Total Rent Collected, Total Operating Expenses, Net Profit, Total Electricity Collected, Total Supplier Bill Amount, **Electricity Variance & Reconciliation Status (Surplus / Deficit / Balanced)**, Pending Rent Dues, Occupancy Rate %. | MASTER Rule 3, 4 |
+| **FR-59** | The dashboard displays distinct financial KPI cards: **Total Rent Collected**, **Total Operating Expenses**, **Net Rental Profit**, **Total Tenant Electricity Collected**, **Total Supplier Utility Bill**, **Electricity Surplus (Extra Savings)**, **Electricity Deficit (Landlord Out-of-Pocket)**, Pending Rent Dues, Occupancy Rate %. | BR-03.3, BR-04 |
 | **FR-60** | The dashboard supports time window filters: **Monthly**, **Indian Financial Year (April 1 – March 31)**, and **Custom Date Range**. | MASTER Rule 4 |
 | **FR-61** | The dashboard supports **granularity**: Single Building view, or full Landlord Portfolio (all buildings) rolled up. | MASTER Rule 4 |
 | **FR-62** | Multi-level aggregation: **Level 1** (single building), **Level 2** (landlord portfolio), **Level 3** (per-landlord admin view), **Level 4** (system-wide super admin). | MASTER Rule 4 |
-| **FR-63** | **Historical trend charts** show multi-year rent revenue, expense trends, occupancy history, and electricity reconciliation surplus/deficit history (Recharts). | MASTER Rule 4 |
-| **FR-64** | **Risk indicators** surface early warnings: mounting unpaid dues, declining occupancy, overdue spikes, and **growing electricity deficits (out-of-pocket losses)**. | MASTER Rule 4 |
+| **FR-63** | **Historical trend charts** show multi-year rent revenue, expense trends, occupancy history, and separate **Electricity Surplus vs. Deficit trend lines** (Recharts). | BR-03.3, BR-04 |
+| **FR-64** | **Risk indicators** surface early warnings: mounting unpaid dues, declining occupancy, overdue spikes, and **growing electricity deficits (out-of-pocket losses)**. | BR-03.3, BR-04 |
 | **FR-65** | A **Tenant** has **zero access** to any Revenue Dashboard or P&L data — blocked at both API (HTTP 403) and UI layers. | MASTER Rule 1 |
 | **FR-66** | An **Admin** can view per-landlord financial breakdowns (Level 3 aggregation). | MASTER Rule 1, 4 |
 | **FR-67** | A **Super Admin** can view system-wide platform financial metrics (Level 4 aggregation). | MASTER Rule 1, 4 |
@@ -282,7 +299,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | FR-15 – FR-21 | AC-15 | Admin Management |
 | FR-22 – FR-29 | AC-22 | Building & Asset Hierarchy |
 | FR-30 – FR-35 | AC-30 | Tenant Lifecycle |
-| FR-36 – FR-44 | AC-36 | Rent Cycle & Room Rent Ledger |
+| FR-36 – FR-44 | AC-36 | Rent Cycle, Room Rent Ledger & Payment Transactions |
 | FR-45 – FR-53 | AC-45 | Electricity Pass-Through Model |
 | FR-54 – FR-57 | AC-54 | Building Operating Expenses |
 | FR-58 – FR-67 | AC-58 | Revenue Dashboard & P&L Analytics |

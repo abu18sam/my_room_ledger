@@ -106,8 +106,20 @@ enum PaymentStatus {
   OVERDUE
 }
 
+enum CompanyStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum LedgerType {
+  ROOM_RENT
+  ELECTRICITY
+}
+
 enum ExpenseCategory {
   WATER_BILL
+  COMMON_ELECTRICITY
+  WATER_MOTOR_ELECTRICITY
   MAINTENANCE
   REPAIRS
   SECURITY
@@ -139,6 +151,20 @@ enum RequestStatus {
 }
 
 // MODEL DEFINITIONS
+model PowerSupplyCompany {
+  id        BigInt        @id @default(autoincrement())
+  name      String        @unique @db.VarChar(150) // e.g. UPCL, UPPCL, Reliance Power Ltd
+  status    CompanyStatus @default(ACTIVE)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  buildings     Building[]
+  supplierBills SupplierMasterBill[]
+
+  @@index([status])
+  @@map("power_supply_companies")
+}
+
 model CountryCode {
   id                 BigInt   @id @default(autoincrement())
   countryCode        String   @unique @map("country_code") @db.VarChar(5) // ISO alpha-2 e.g. "IN"
@@ -199,24 +225,27 @@ model PasswordResetRequest {
 }
 
 model Building {
-  id              BigInt      @id @default(autoincrement())
-  landlordId      BigInt      @map("landlord_id")
-  name            String      @db.VarChar(150)
-  addressLine     String      @map("address_line") @db.Text
-  city            String      @db.VarChar(100)
-  state           String      @db.VarChar(100)
-  pincode         String      @db.VarChar(10)
-  totalFloors     Int         @map("total_floors")
-  createdAt       DateTime    @default(now()) @map("created_at")
-  updatedAt       DateTime    @updatedAt @map("updated_at")
+  id              BigInt             @id @default(autoincrement())
+  landlordId      BigInt             @map("landlord_id")
+  powerCompanyId  BigInt             @map("power_company_id")
+  name            String             @db.VarChar(150)
+  addressLine     String             @map("address_line") @db.Text
+  city            String             @db.VarChar(100)
+  state           String             @db.VarChar(100)
+  pincode         String             @db.VarChar(10)
+  totalFloors     Int                @map("total_floors")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
 
   // Relationships
-  landlord        User        @relation("LandlordBuildings", fields: [landlordId], references: [id], onDelete: Cascade)
+  landlord        User               @relation("LandlordBuildings", fields: [landlordId], references: [id], onDelete: Cascade)
+  powerCompany    PowerSupplyCompany @relation(fields: [powerCompanyId], references: [id], onDelete: Restrict)
   floors          Floor[]
   expenses        BuildingExpense[]
   supplierBills   SupplierMasterBill[]
 
   @@index([landlordId])
+  @@index([powerCompanyId])
   @@map("buildings")
 }
 
@@ -343,23 +372,28 @@ model BuildingExpense {
 }
 
 model SupplierMasterBill {
-  id                 BigInt        @id @default(autoincrement())
-  buildingId         BigInt        @map("building_id")
-  supplierName       String        @map("supplier_name") @db.VarChar(100) // e.g. UPCL
-  billCycleStart     DateTime      @map("bill_cycle_start") @db.Date
-  billCycleEnd       DateTime      @map("bill_cycle_end") @db.Date
-  masterBillAmount   Decimal       @map("master_bill_amount") @db.Decimal(10, 2)
-  amountPaid         Decimal       @default(0.00) @map("amount_paid") @db.Decimal(10, 2)
-  status             PaymentStatus @default(UNPAID)
-  dueDate            DateTime      @map("due_date") @db.Date
-  paidDate           DateTime?     @map("paid_date")
-  digitalBillDocId   BigInt?       @map("digital_bill_doc_id")
-  createdAt          DateTime      @default(now()) @map("created_at")
+  id                 BigInt             @id @default(autoincrement())
+  buildingId         BigInt             @map("building_id")
+  powerCompanyId     BigInt             @map("power_company_id")
+  billCycleStart     DateTime           @map("bill_cycle_start") @db.Date
+  billCycleEnd       DateTime           @map("bill_cycle_end") @db.Date
+  masterBillAmount   Decimal            @map("master_bill_amount") @db.Decimal(10, 2)
+  tariffRatePerUnit  Decimal?           @map("tariff_rate_per_unit") @db.Decimal(8, 2) // e.g. ₹7.00/unit
+  surplusAmount      Decimal?           @default(0.00) @map("surplus_amount") @db.Decimal(10, 2)
+  deficitAmount      Decimal?           @default(0.00) @map("deficit_amount") @db.Decimal(10, 2)
+  amountPaid         Decimal            @default(0.00) @map("amount_paid") @db.Decimal(10, 2)
+  status             PaymentStatus      @default(UNPAID)
+  dueDate            DateTime           @map("due_date") @db.Date
+  paidDate           DateTime?          @map("paid_date")
+  digitalBillDocId   BigInt?            @map("digital_bill_doc_id")
+  createdAt          DateTime           @default(now()) @map("created_at")
 
-  building           Building      @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  digitalBillDoc     DocumentMetadata? @relation(fields: [digitalBillDocId], references: [id])
+  building           Building           @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  powerCompany       PowerSupplyCompany @relation(fields: [powerCompanyId], references: [id], onDelete: Restrict)
+  digitalBillDoc     DocumentMetadata?  @relation(fields: [digitalBillDocId], references: [id])
 
   @@index([buildingId, status])
+  @@index([powerCompanyId])
   @@map("supplier_master_bills")
 }
 
@@ -412,43 +446,62 @@ model BillingCycleTenantsSnapshot {
 }
 
 model RoomRentLedger {
-  id                   BigInt        @id @default(autoincrement())
-  billingCycleId       BigInt        @unique @map("billing_cycle_id")
-  amount               Decimal       @db.Decimal(10, 2)
-  amountPaid           Decimal       @default(0.00) @map("amount_paid") @db.Decimal(10, 2)
-  status               PaymentStatus @default(UNPAID)
-  dueDate              DateTime      @map("due_date") @db.Date
-  paidDate             DateTime?     @map("paid_date")
-  paymentMethod        String?       @map("payment_method") @db.VarChar(50)
-  transactionReference String?       @map("transaction_reference") @db.VarChar(100)
-  notes                String?       @db.Text
-  createdAt            DateTime      @default(now()) @map("created_at")
+  id                   BigInt               @id @default(autoincrement())
+  billingCycleId       BigInt               @unique @map("billing_cycle_id")
+  amount               Decimal              @db.Decimal(10, 2)
+  amountPaid           Decimal              @default(0.00) @map("amount_paid") @db.Decimal(10, 2) // Running sum of all PaymentTransactions
+  status               PaymentStatus        @default(UNPAID)
+  dueDate              DateTime             @map("due_date") @db.Date                              // = BillingCycle.cycleEndDate; OVERDUE when currentDate > dueDate
+  paidDate             DateTime?            @map("paid_date")                                      // Set when status transitions to PAID
+  notes                String?              @db.Text
+  createdAt            DateTime             @default(now()) @map("created_at")
 
-  billingCycle         BillingCycle  @relation(fields: [billingCycleId], references: [id], onDelete: Cascade)
+  billingCycle         BillingCycle         @relation(fields: [billingCycleId], references: [id], onDelete: Cascade)
+  paymentTransactions  PaymentTransaction[]
 
   @@index([status])
   @@map("room_rent_ledgers")
 }
 
 model ElectricityLedger {
-  id                   BigInt        @id @default(autoincrement())
-  billingCycleId       BigInt        @unique @map("billing_cycle_id")
-  unitsConsumed        Decimal?      @map("units_consumed") @db.Decimal(10, 2)
-  ratePerUnit          Decimal?      @map("rate_per_unit") @db.Decimal(8, 2)
-  amount               Decimal       @db.Decimal(10, 2) // Formula: Units * Rate
-  amountPaid           Decimal       @default(0.00) @map("amount_paid") @db.Decimal(10, 2)
-  status               PaymentStatus @default(UNPAID)
-  dueDate              DateTime      @map("due_date") @db.Date
-  paidDate             DateTime?     @map("paid_date")
-  paymentMethod        String?       @map("payment_method") @db.VarChar(50)
-  transactionReference String?       @map("transaction_reference") @db.VarChar(100)
-  notes                String?       @db.Text
-  createdAt            DateTime      @default(now()) @map("created_at")
+  id                   BigInt               @id @default(autoincrement())
+  billingCycleId       BigInt               @unique @map("billing_cycle_id")
+  unitsConsumed        Decimal?             @map("units_consumed") @db.Decimal(10, 2)
+  ratePerUnit          Decimal?             @map("rate_per_unit") @db.Decimal(8, 2)
+  amount               Decimal              @db.Decimal(10, 2)                                      // Formula: Units * Rate
+  amountPaid           Decimal              @default(0.00) @map("amount_paid") @db.Decimal(10, 2)  // Running sum of all PaymentTransactions
+  status               PaymentStatus        @default(UNPAID)
+  dueDate              DateTime             @map("due_date") @db.Date                               // = BillingCycle.cycleEndDate; OVERDUE when currentDate > dueDate
+  paidDate             DateTime?            @map("paid_date")                                       // Set when status transitions to PAID
+  notes                String?              @db.Text
+  createdAt            DateTime             @default(now()) @map("created_at")
 
-  billingCycle         BillingCycle  @relation(fields: [billingCycleId], references: [id], onDelete: Cascade)
+  billingCycle         BillingCycle         @relation(fields: [billingCycleId], references: [id], onDelete: Cascade)
+  paymentTransactions  PaymentTransaction[]
 
   @@index([status])
   @@map("electricity_ledgers")
+}
+
+model PaymentTransaction {
+  id                   BigInt             @id @default(autoincrement())
+  ledgerType           LedgerType         @map("ledger_type")                                        // Discriminator: ROOM_RENT | ELECTRICITY
+  rentLedgerId         BigInt?            @map("rent_ledger_id")                                     // Non-null when ledgerType = ROOM_RENT
+  electricityLedgerId  BigInt?            @map("electricity_ledger_id")                              // Non-null when ledgerType = ELECTRICITY
+  amountPaid           Decimal            @map("amount_paid") @db.Decimal(10, 2)                     // Must be > 0; validated at application layer
+  paymentDate          DateTime           @map("payment_date")                                        // User-supplied or defaults to server UTC timestamp
+  paymentMethod        String             @map("payment_method") @db.VarChar(50)                     // UPI | CASH | BANK_TRANSFER
+  transactionReference String?            @map("transaction_reference") @db.VarChar(100)
+  notes                String?            @db.Text
+  recordedAt           DateTime           @default(now()) @map("recorded_at")                        // Immutable system creation timestamp
+
+  rentLedger           RoomRentLedger?    @relation(fields: [rentLedgerId],        references: [id], onDelete: Cascade)
+  electricityLedger    ElectricityLedger? @relation(fields: [electricityLedgerId], references: [id], onDelete: Cascade)
+
+  // Application layer (Zod) enforces exactly one of rentLedgerId / electricityLedgerId is non-null, matching ledgerType
+  @@index([rentLedgerId])
+  @@index([electricityLedgerId])
+  @@map("payment_transactions")
 }
 
 model DocumentMetadata {

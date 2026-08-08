@@ -74,19 +74,77 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
       "minLength": 10,
       "maxLength": 10,
       "isDefault": true
-    },
-    {
-      "id": "2",
-      "countryCode": "US",
-      "dialCode": "+1",
-      "countryName": "United States",
-      "flagEmoji": "🇺🇸",
-      "phoneRegexPattern": "^[2-9]\\d{9}$",
-      "minLength": 10,
-      "maxLength": 10,
-      "isDefault": false
     }
   ]
+  ```
+
+### `GET /api/v1/meta/power-companies`
+- **Access**: Public / Authenticated (Populates FE dropdowns)
+- **Response (200 OK)**:
+  ```json
+  [
+    { "id": "1", "name": "Uttarakhand Power Corporation Limited (UPCL)", "status": "ACTIVE" },
+    { "id": "2", "name": "Uttar Pradesh Power Corporation Limited (UPPCL)", "status": "ACTIVE" },
+    { "id": "3", "name": "Reliance Power Ltd", "status": "ACTIVE" },
+    { "id": "4", "name": "Adani Power Ltd", "status": "ACTIVE" },
+    { "id": "5", "name": "Tata Power Company Limited (TPCL)", "status": "ACTIVE" },
+    { "id": "6", "name": "National Thermal Power Corporation (NTPC)", "status": "ACTIVE" }
+  ]
+  ```
+
+### `POST /api/v1/admin/power-companies`
+- **Access**: `SUPER_ADMIN` | `ADMIN`
+- **Request Body**:
+  ```json
+  {
+    "name": "Torrent Power Ltd",
+    "status": "ACTIVE"
+  }
+  ```
+- **Response (201 Created)**:
+  ```json
+  {
+    "id": "7",
+    "name": "Torrent Power Ltd",
+    "status": "ACTIVE",
+    "createdAt": "2026-08-08T20:00:00Z"
+  }
+  ```
+
+### `DELETE /api/v1/admin/power-companies/{id}`
+- **Access**: `SUPER_ADMIN` | `ADMIN`
+- **Response (200 OK - When 0 linked buildings)**:
+  ```json
+  {
+    "message": "Power supply company deleted successfully."
+  }
+  ```
+- **Error Response (400 Bad Request / 409 Conflict - When linked to >= 1 building)**:
+  ```json
+  {
+    "statusCode": 400,
+    "error": "COMPANY_IN_USE",
+    "message": "Cannot delete or deactivate power supply company because 3 buildings are currently linked to it."
+  }
+  ```
+
+---
+
+## 4. Power Supplier Master Bill Endpoints
+
+### `POST /api/v1/buildings/{buildingId}/supplier-master-bills`
+- **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN`
+- **Request Body**:
+  ```json
+  {
+    "powerCompanyId": "1",
+    "billCycleStart": "2026-06-01",
+    "billCycleEnd": "2026-06-30",
+    "masterBillAmount": 28500.00,
+    "tariffRatePerUnit": 7.00,
+    "dueDate": "2026-07-20",
+    "digitalBillDocId": "501"
+  }
   ```
 
 ### `POST /api/v1/auth/login`
@@ -360,7 +418,7 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
 - **Request Body**:
   ```json
   {
-    "supplierName": "UPCL (Uttarakhand Power Corporation Limited)",
+    "powerCompanyId": "1",
     "billCycleStart": "2026-06-01",
     "billCycleEnd": "2026-06-30",
     "masterBillAmount": 28500.00,
@@ -368,6 +426,28 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
     "digitalBillDocId": "501"
   }
   ```
+
+### `PATCH /api/v1/buildings/{buildingId}/supplier-master-bills/{billId}`
+- **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN`
+- **Purpose**: Mark supplier master bill as paid. Single lump-sum settlement — no partial payments.
+- **Request Body**:
+  ```json
+  {
+    "status": "PAID",
+    "paidDate": "2026-08-10T14:00:00Z",
+    "notes": "Paid via NEFT to UPCL for July bill"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "billId": "501",
+    "status": "PAID",
+    "paidDate": "2026-08-10T14:00:00Z",
+    "updatedAt": "2026-08-10T14:02:33Z"
+  }
+  ```
+- **Error**: HTTP 409 `CONFLICT` if bill is already `PAID`.
 
 ---
 
@@ -414,16 +494,100 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
   }
   ```
 
-### `PATCH /api/v1/ledgers/room-rent/{ledgerId}`
-- **Access**: `LANDLORD` (Own Buildings)
+### `POST /api/v1/ledgers/room-rent/{ledgerId}/payments`
+- **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN`
+- **Purpose**: Record a payment transaction (partial or full) against a Room Rent Ledger. Multiple payments may be recorded per ledger.
 - **Request Body**:
   ```json
   {
-    "status": "PAID",
-    "amountPaid": 12000.00,
-    "paidDate": "2026-08-03T10:30:00Z",
+    "amountPaid": 1000.00,
+    "paymentDate": "2026-08-03T10:30:00Z",
     "paymentMethod": "UPI",
-    "transactionReference": "UPI/329482910"
+    "transactionReference": "UPI/329482910",
+    "notes": "Partial payment for August cycle"
+  }
+  ```
+  > `paymentDate` is optional. If omitted, defaults to server UTC timestamp.
+- **Response (201 Created)**:
+  ```json
+  {
+    "transactionId": "701",
+    "ledgerId": "301",
+    "amountPaid": 1000.00,
+    "runningTotal": 1000.00,
+    "remainingBalance": 1500.00,
+    "ledgerStatus": "PARTIALLY_PAID",
+    "paymentDate": "2026-08-03T10:30:00Z",
+    "recordedAt": "2026-08-03T10:32:11Z"
+  }
+  ```
+
+### `GET /api/v1/ledgers/room-rent/{ledgerId}/payments`
+- **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN` | `TENANT` (Own Ledger)
+- **Purpose**: Retrieve all payment transactions for a Room Rent Ledger, sorted ascending by `paymentDate`.
+- **Response (200 OK)**:
+  ```json
+  {
+    "ledgerId": "301",
+    "totalAmount": 2500.00,
+    "amountPaid": 1000.00,
+    "remainingBalance": 1500.00,
+    "status": "PARTIALLY_PAID",
+    "transactions": [
+      {
+        "transactionId": "701",
+        "amountPaid": 1000.00,
+        "paymentDate": "2026-08-03T10:30:00Z",
+        "paymentMethod": "UPI",
+        "transactionReference": "UPI/329482910",
+        "notes": "Partial payment for August cycle",
+        "recordedAt": "2026-08-03T10:32:11Z"
+      }
+    ]
+  }
+  ```
+
+### `POST /api/v1/ledgers/electricity/{ledgerId}/payments`
+- **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN`
+- **Purpose**: Record a payment transaction (partial or full) against an Electricity Ledger.
+- **Request Body**: *(Same shape as Room Rent payment above.)*
+- **Response (201 Created)**: *(Same shape as Room Rent payment response above.)*
+
+### `GET /api/v1/ledgers/electricity/{ledgerId}/payments`
+- **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN` | `TENANT` (Own Ledger)
+- **Purpose**: Retrieve all payment transactions for an Electricity Ledger.
+- **Response (200 OK)**: *(Same shape as Room Rent GET payments response above.)*
+
+### `GET /api/v1/rooms/{roomId}/outstanding-balance`
+- **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN`
+- **Purpose**: Returns total outstanding balance for a room: `SUM(amount − amountPaid)` across all non-`PAID` rent and electricity ledger entries, with per-cycle breakdown.
+- **Response (200 OK)**:
+  ```json
+  {
+    "roomId": "101",
+    "roomName": "Room 11",
+    "totalOutstanding": 3200.00,
+    "cycles": [
+      {
+        "billingCycleId": "201",
+        "cycleStart": "2026-06-01",
+        "cycleEnd": "2026-06-30",
+        "rent": {
+          "ledgerId": "301",
+          "amount": 2500.00,
+          "amountPaid": 1000.00,
+          "pending": 1500.00,
+          "status": "PARTIALLY_PAID"
+        },
+        "electricity": {
+          "ledgerId": "401",
+          "amount": 1700.00,
+          "amountPaid": 0.00,
+          "pending": 1700.00,
+          "status": "OVERDUE"
+        }
+      }
+    ]
   }
   ```
 

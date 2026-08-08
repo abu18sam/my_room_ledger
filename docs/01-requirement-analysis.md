@@ -29,29 +29,38 @@ Traditional rental management for urban shared accommodations (PGs, co-living bu
 
 ### 2.1 In-Scope Capabilities
 - **Multi-Building & Infrastructure**: CRUD operations for buildings, floors, rooms, shared bathrooms (`Bath XY`), and shared toilets (`Toilet XY`).
+- **Power Supply Companies Registry**:
+  - Pre-seeded DB table (`power_supply_companies`) hosting initial utility providers: UPCL, UPPCL, Reliance Power Ltd, Adani Power Ltd, TPCL, NTPC.
+  - Dropdown API for FE building registration; Admin/Super Admin management (Create, Edit Name, Status Toggle); deletion blocked if linked to $\ge 1$ building.
+  - Mandatory selection of a Power Supply Company for each building.
 - **Flexible Room Layouts**: Private attached facilities, floor-level shared facilities, and hybrid mixed floors.
 - **Tenant Management & History**: Multi-tenant room assignment, KYC record keeping, move-in/move-out audit logs, active vs inactive (vacated) tenant status tracking.
 - **Dynamic Rent Cycle Engine**: Mid-tenancy adjustable cycle start days with historical cycle logging.
 - **Independent Billing Engine & Dual Electricity Flows**:
   - **Flow 1: Tenant $\rightarrow$ Landlord (Room Submeter Collection)**:
-    - Submeter data capture per room: `Units Consumed`, `Start Date`, `End Date`, `Rate per Unit (₹)`.
+    - Submeter data capture per room: `Units Consumed`, `Start Date`, `End Date`, Landlord `Rate per Unit (₹)` (e.g. ₹8/unit).
     - Auto-calculated formula: $\text{Total Electricity Bill} = \text{Units Consumed} \times \text{Rate per Unit}$.
     - Status tracking: `UNPAID`, `PARTIALLY_PAID`, `PAID`, `OVERDUE`.
   - **Flow 2: Landlord $\rightarrow$ Power Supplier (Master Building Bill)**:
-    - Master bill capture per building: Power Supplier name (e.g., UPCL), Master Bill Amount, Due Date, Payment Status (`UNPAID`, `PAID`), Paid Timestamp.
+    - Master bill capture per building linked to selected Power Supply Company (e.g. UPCL @ ₹7/unit tariff rate): Master Bill Amount, Due Date, Payment Status (`UNPAID`, `PAID`), Paid Timestamp.
     - **Digital Bill Storage**: File upload for digital supplier bill (Image / PDF) linked to Building and Billing Cycle.
-- **Building Expense Tracking**:
+- **Common Electricity Load & Building Expense Tracking**:
+  - Accounting for common building electricity consumption (hallway lighting, common sanitation lights, submersible water motor pumps).
+  - Paid from electricity surplus or landlord rental income (logged under `WATER_MOTOR_ELECTRICITY` / `COMMON_ELECTRICITY` operating expenses).
   - Landlord capability to log building-level operating expenses (Water bills, maintenance/repairs, cleaning, security, property taxes, miscellaneous).
-  - Categorization, receipt references, and timestamped expense audit entries.
 - **Multi-Level Financial Aggregation Engine**:
-  - **Landlord Profit**: $\text{Net Profit} = (\text{Rent Collected}) - (\text{Building Operating Expenses})$.
-  - **Electricity Pass-Through Audit**: $\text{Pass-Through Variance} = (\text{Tenant Electricity Collected}) - (\text{Supplier Master Bill Paid})$.
+  - **Landlord Profit Invariant**: $\text{Net Profit} = (\text{Rent Collected}) - (\text{Building Operating Expenses})$.
+  - **Electricity Reconciliation Audit (3 Scenarios)**:
+    - $\text{Pass-Through Variance} = (\text{Tenant Electricity Collected}) - (\text{Supplier Master Bill Paid})$.
+    - **Surplus Case**: Tenant Collection > Supplier Bill (Extra Savings, displayed separately from Net Profit).
+    - **Deficit Case**: Tenant Collection < Supplier Bill (Landlord out-of-pocket contribution, displayed separately from Net Profit).
+    - **Break-Even Case**: Tenant Collection = Supplier Bill.
   - **Landlord Views**: Single Building View, All Owned Buildings View across Monthly, IFY Yearly (April 1 – March 31), and Custom Date Ranges.
   - **Admin & Super Admin Views**: System-Wide Platform View, Per-Landlord Aggregated View, Per-Building Scoped View.
 - **Historical & Predictive Insights Engine**:
   - **Historical Trends**: Multi-year revenue trends, expense patterns, P&L over time, tenant occupancy history.
   - **Predictive Projections**: Statistical future revenue forecasting based on active tenancies and collection velocity.
-  - **Risk Indicators**: Early warnings for mounting unpaid bills, declining occupancy trends, and overdue payment spikes.
+  - **Risk Indicators**: Early warnings for mounting unpaid bills, declining occupancy trends, overdue payment spikes, and growing electricity deficits.
 - **Tenant Complaints**: Issue reporting, priority tagging, landlord resolution workflow.
 
 ### 2.2 Out-of-Scope (Deferred to Future Phases)
@@ -69,10 +78,11 @@ Traditional rental management for urban shared accommodations (PGs, co-living bu
 | :--- | :---: | :---: | :---: | :---: |
 | Create, Update, Delete Admin & Super Admin Accounts | ✅ Full | ❌ Blocked | ❌ Blocked | ❌ Blocked |
 | Onboard & Manage Landlord Profiles | ✅ Full | ✅ Allowed | ❌ Blocked | ❌ Blocked |
+| Manage Power Supply Companies (Create/Edit/Status) | ✅ Full | ✅ Allowed | ❌ Blocked | ❌ Blocked |
 | System Configuration & Global Audit Logs | ✅ Full | ❌ Read-Only | ❌ Blocked | ❌ Blocked |
 | Building & Room Structural Management | 🔍 System Audit | 🔍 System Audit | ✅ Own Properties Only | ❌ Blocked |
 | Input Room Submeter Readings & Generate Elec Bill | 🔍 System Audit | 🔍 System Audit | ✅ Own Properties Only | ❌ Blocked |
-| Log Master Supplier Bill (UPCL) & Upload PDF/Image | 🔍 System Audit | 🔍 System Audit | ✅ Own Properties Only | ❌ Blocked |
+| Log Master Supplier Bill & Upload PDF/Image | 🔍 System Audit | 🔍 System Audit | ✅ Own Properties Only | ❌ Blocked |
 | View Yearly IFY Revenue & P&L Dashboard | 🔍 System Audit | 🔍 System Audit | ✅ Own Properties Only | 🚫 STRICTLY BLOCKED |
 | Multi-Level Financial & Electricity Flow View | ✅ System-Wide | ✅ System-Wide | ✅ Own Portfolio | 🚫 STRICTLY BLOCKED |
 | View Room Payment History (Rent + Submeter Elec) | 🔍 System Audit | 🔍 System Audit | ✅ Own Properties Only | 🔍 Own Assigned Room Only |
@@ -93,30 +103,32 @@ Traditional rental management for urban shared accommodations (PGs, co-living bu
 ```mermaid
 flowchart TD
     subgraph Flow1 ["Flow 1: Tenant -> Landlord (Room Submeter Collection)"]
-        A[Landlord Inputs Submeter Reading] --> B["Auto-Calculate: Units * Rate"]
+        A[Landlord Inputs Submeter Reading & Rate e.g. ₹8/unit] --> B["Auto-Calculate: Units * Landlord Rate"]
         B --> C[Generate Room Electricity Ledger]
         C --> D{Tenant Payment}
         D -- Paid --> E[Mark Tenant Elec Status: PAID]
         D -- Unpaid --> F[Mark Tenant Elec Status: UNPAID]
     end
 
-    subgraph Flow2 ["Flow 2: Landlord -> Power Supplier (Master Building Bill)"]
-        G[Power Supplier Issues Master Bill e.g. UPCL] --> H[Landlord Logs Master Bill Amount & Uploads PDF/Image]
-        H --> I[Link Bill to Building & Billing Cycle]
-        I --> J{Landlord Supplier Payment}
-        J -- Paid --> K[Mark Supplier Bill Status: PAID]
-        J -- Pending --> L[Mark Supplier Bill Status: UNPAID]
+    subgraph Flow2 ["Flow 2: Landlord -> Selected Power Supplier (Master Building Bill)"]
+        G[Select Power Supplier e.g. UPCL / UPPCL] --> H[Supplier Issues Master Bill e.g. ₹7/unit tariff + Common Area Load]
+        H --> I[Landlord Logs Master Bill Amount & Uploads PDF/Image]
+        I --> J[Link Bill to Building & Billing Period]
+        J --> K{Landlord Supplier Payment}
+        K -- Paid --> L[Mark Supplier Bill Status: PAID]
+        K -- Pending --> M[Mark Supplier Bill Status: UNPAID]
     end
 
-    subgraph Audit ["Pass-Through & Reconciliation Audit"]
-        E --> M["Electricity Reconciliation Audit: Total Tenant Collected (C) vs Supplier Bill (B)"]
-        K --> M
-        M --> N["Calculate Variance: V = C - B"]
-        N --> O{"Check Variance"}
-        O -- "V > 0" --> P["SURPLUS: Extra Collected"]
-        O -- "V < 0" --> Q["DEFICIT: Under-Collected (Out-of-Pocket)"]
-        O -- "V = 0" --> R["BALANCED: Exact Match"]
-        N --> S[Excluded from Net Profit Calculation]
+    subgraph Audit ["Pass-Through Reconciliation & Separation Audit"]
+        E --> N["Electricity Reconciliation Audit: Total Tenant Collected (C) vs Supplier Bill (B)"]
+        L --> N
+        N --> O["Calculate Variance: V = C - B"]
+        O --> P{"Check Variance"}
+        P -- "V > 0" --> Q["SURPLUS: Extra Savings (Displayed Separately)"]
+        P -- "V < 0" --> R["DEFICIT: Landlord Out-of-Pocket (Displayed Separately)"]
+        P -- "V = 0" --> S["BALANCED: Exact Match"]
+        Q --> T[Excluded from Net Rental Profit Calculation]
+        R --> T
     end
 ```
 

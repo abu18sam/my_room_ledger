@@ -278,13 +278,13 @@ sequenceDiagram
 ## 5. Electricity Pass-Through & Reconciliation Pipeline
 
 ```
-   [ROOM SUBMETERS]                                [POWER SUPPLIER (e.g. UPCL)]
-   Tenant 1: Units × Rate → Elec Ledger 1           Master Building Bill (Period P)
-   Tenant 2: Units × Rate → Elec Ledger 2                    |
-   ...                                                       v
-   Tenant N: Units × Rate → Elec Ledger N         SupplierMasterBill (Amount = B)
-            |                                                |
-            +-----------------------+------------------------+
+   [ROOM SUBMETERS]                                [POWER SUPPLY COMPANY (e.g. UPCL / UPPCL)]
+   Tenant 1: Units × Landlord Rate → Elec Ledger 1      Master Building Bill (Period P) @ Tariff Rate
+   Tenant 2: Units × Landlord Rate → Elec Ledger 2                |
+   ...                                                           v
+   Tenant N: Units × Landlord Rate → Elec Ledger N     SupplierMasterBill (Amount = B) + Common Load
+            |                                                    |
+            +-----------------------+----------------------------+
                                     |
                                     v
                     [RECONCILIATION ENGINE (Service Layer)]
@@ -292,12 +292,19 @@ sequenceDiagram
                     Supplier Master Bill Amount (B)
                                     |
                                     v
-             Calculates Variance V = C - B (Monthly / IFY / Cycle)
+             Calculates Variance V = C - B (Dynamic Cycle / Monthly / IFY)
                                     |
-         +--------------------------+--------------------------+
-         |                                                     |
-         v                                                     v
-   IF V > 0: SURPLUS                                     IF V < 0: DEFICIT
-   (Over-collected extra funds)                          (Under-collected; Out-of-pocket loss)
+        +---------------------------+---------------------------+
+        |                           |                           |
+        v                           v                           v
+  IF V > 0: SURPLUS           IF V < 0: DEFICIT           IF V = 0: BALANCED
+  ("Extra Savings"            ("Landlord Contribution"    (Exact Match)
+   Displayed separately)       Displayed separately)
+        |                           |                           |
+        +---------------------------+---------------------------+
+                                    |
+                                    v
+       [FINANCIAL ISOLATION GUARANTEE: Never merged into Net Rental Profit]
+       Net Rental Profit = Rent Collected - Building Operating Expenses
 ```
 

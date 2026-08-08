@@ -56,3 +56,10 @@
 | **Password Masking Toggle** | UI control (show/hide eye icon) on password input fields allowing users to mask or reveal entered characters. | BR-11.1, FR-P00b, AC-P00.2 |
 | **Header Notification Panel** | Admin frontend top-header bell icon displaying real-time alerts for pending password reset requests. | BR-11.2, FR-P06, AC-P05.1 |
 | **Single-View Modal** | Secure Admin portal modal displaying generated temporary password for manual share (valid 15-30 mins, logged in audit). | BR-11.3, FR-P10, AC-P05.6 |
+| **Power Supply Company** | External electricity provider entity (e.g. UPCL, UPPCL, Reliance, Adani, TPCL, NTPC) stored in database and linked to buildings. | BR-13, FR-50a–e, AC-50 |
+| **Per-Unit Rate Differential** | Variance between per-unit rate charged by landlord to tenants (e.g. ₹8/unit) vs utility company tariff rate (e.g. ₹7/unit). | BR-03.2, FR-45, AC-45.1 |
+| **Common Electricity Load** | Electricity consumed by building common areas (lights, submersible water pumps) paid by landlord from surplus or rental income. | BR-03.2, FR-52d, AC-45.13 |
+| **PaymentTransaction** | An immutable record of a single payment event (partial or full) made against a `RoomRentLedger` or `ElectricityLedger`. Multiple transactions may exist per ledger cycle. Stores `amountPaid`, `paymentDate`, `paymentMethod`, and optional `transactionReference`. | BR-14.1, FR-41, AC-36.11 |
+| **Carry-Forward Balance** | Informal term for unpaid ledger amounts persisting across billing cycles. Not physically transferred — computed dynamically as `SUM(amount − amountPaid)` across all non-PAID cycles for a room. | BR-14.4, FR-41c, AC-36.17 |
+| **OVERDUE** | A `PaymentStatus` enum value assigned when `currentDate > BillingCycle.cycleEndDate` and the ledger is still `UNPAID` or `PARTIALLY_PAID`. No grace period applies. An OVERDUE ledger can still receive payments and transition to `PAID` upon full settlement. | BR-14.3, FR-41b, AC-36.15 |
+

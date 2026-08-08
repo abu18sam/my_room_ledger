@@ -70,5 +70,7 @@
 | **Error Envelope** | Standardized JSON structure returned for all non-2xx API responses: `{ statusCode, error, message, metadata }` (or `details` for validation errors). | BR-15.1, FR-82, AC-82.1, docs/error-handling.md |
 | **Error Code** | Machine-readable SCREAMING_SNAKE_CASE string uniquely identifying an error condition (e.g. `COMPANY_IN_USE`, `PENDING_SUPPLIER_BILLS_EXIST`). Enables precise client error routing. | BR-15.1, FR-82, AC-82.1, docs/error-handling.md |
 | **Actionable Error Message** | User-facing error message describing what failed AND what actionable step to take next. Internal stack traces, raw database error strings, and SQL queries are strictly hidden. | BR-15.3, FR-87, AC-82.11 |
+| **UUID Primary Key Strategy** | The mandatory system-wide identifier policy replacing sequential integer auto-increment keys with 128-bit RFC 4122 non-sequential UUID strings (`gen_random_uuid()` / `@default(uuid()) @db.Uuid`) across all 22 database entities. Prevents resource enumeration and IDOR attacks. | BR-10.4, FR-88, AC-82.12 |
+
 
 

@@ -282,9 +282,9 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 | ID | Requirement | Source |
 |----|---|---|
-| **FR-78** | **Every** API endpoint — body, query parameters, and route parameters — is validated through a **Zod schema** via `ZodValidationPipe` before reaching any Controller or Service. | MASTER Rule 10.1 |
+| **FR-78** | **Every** API endpoint — body, query parameters, and route parameters — is validated through a **Zod schema** via `ZodValidationPipe` before reaching any Controller or Service. Route parameter entity IDs are coerced and validated as RFC 4122 UUID strings (`z.string().uuid()`). | MASTER Rule 10.1, BR-10.4 |
 | **FR-79** | Validation failures return `HTTP 400 VALIDATION_ERROR` with structured field-level error details (`details: [{ field, message }]`). No partial processing of invalid input occurs. | MASTER Rule 10.1, BR-15.2 |
-| **FR-80** | All string inputs are sanitized: `.trim()`, minimum length enforced, and pattern-matched where applicable (e.g., phone numbers, email format). | MASTER Rule 10.1 |
+| **FR-80** | All string inputs are sanitized: `.trim()`, minimum length enforced, and pattern-matched where applicable (e.g., phone numbers, email format, UUID format). | MASTER Rule 10.1 |
 | **FR-81** | All date inputs are validated as ISO 8601. Indian Financial Year boundary rules (Apr 1 – Mar 31) are enforced for all date range queries. | MASTER Rule 4, 10.1 |
 | **FR-82** | All non-2xx API responses across the system MUST conform to the universal error response envelope (`{ statusCode, error, message, metadata }`) defined in `docs/error-handling.md`. | BR-15.1 |
 | **FR-83** | Deleting or deactivating a `PowerSupplyCompany` linked to ≥1 buildings MUST be rejected with `HTTP 409 COMPANY_IN_USE` accompanied by `metadata.affectedBuildings[]` listing linked building names and landlord details. | BR-13.3, BR-15.4 |
@@ -292,6 +292,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | **FR-85** | Requesting a resource ID that does not exist in the database MUST return `HTTP 404 NOT_FOUND`. Requesting a resource owned by another user MUST return `HTTP 403 FORBIDDEN`. | BR-15.5 |
 | **FR-86** | Creating a user (Admin, Landlord, Tenant) with an email or phone number that is already registered MUST return `HTTP 409 DUPLICATE_ENTRY`. | BR-15.5 |
 | **FR-87** | Unhandled server exceptions MUST return `HTTP 500 INTERNAL_SERVER_ERROR` with a generic user message. Stack traces, database constraint names, and internal code paths must never be exposed. | BR-15.3 |
+| **FR-88** | All database entity primary keys and foreign keys MUST use non-sequential RFC 4122 UUID strings (`gen_random_uuid()` / `@default(uuid())`). Numeric auto-increment integer IDs (`BIGINT AUTOINCREMENT`) are strictly prohibited system-wide. | BR-10.4 |
 
 ---
 
@@ -316,7 +317,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | FR-68 – FR-72 | AC-68 | Secure Document Management |
 | FR-73 – FR-77 | AC-73 | Complaints & Maintenance |
 | FR-78 – FR-81 | AC-78 | Input Validation & System Rules |
-| FR-82 – FR-87 | AC-82 | Backend Error Handling Standards & Universal Envelopes |
+| FR-82 – FR-88 | AC-82 | Backend Error Handling Standards & Universal Envelopes |
 
 ---
 

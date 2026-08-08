@@ -152,6 +152,11 @@ This document serves as the **single authoritative source of truth for all domai
 - **Zero Public File Access**: File access strictly via short-lived backend-generated expiring signed URLs (15-min expiry).
 - **Rate Limiting & Security Headers**: Helmet.js enabled globally. `@nestjs/throttler` (100 req/15min globally; 5 req/15min auth). CORS locked down to `NEXT_PUBLIC_FRONTEND_URL`.
 
+#### BR-10.4 — Universal Non-Sequential UUID Primary Key Strategy
+- All primary keys across all database tables MUST be generated using non-sequential, 128-bit UUIDs (`gen_random_uuid()` in PostgreSQL 13+ / `@default(uuid())` in Prisma ORM).
+- Sequential auto-increment integer primary keys (`BIGINT AUTOINCREMENT`) are **strictly prohibited** across all models to prevent resource enumeration attacks, IDOR vulnerabilities, and metrics disclosure.
+- All foreign key relationships, route parameters (`z.string().uuid()`), API payloads, and NestJS pipes (`ParseUUIDPipe`) strictly enforce 36-character hyphenated UUID strings (`8-4-4-4-12` format).
+
 ---
 
 ### BR-11: Password Workflows & Recovery System

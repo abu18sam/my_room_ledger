@@ -13,7 +13,7 @@
 |---|---|
 | `req.body` | Validated by endpoint-specific Zod schema |
 | `req.query` | Validated by query Zod schema (unknown keys stripped) |
-| `req.params` | Route params coerced & validated (e.g., `z.coerce.number()` for IDs) |
+| `req.params` | Route params coerced & validated as RFC 4122 UUID strings (`z.string().uuid()`) |
 | File uploads | MIME type + size validated before any processing |
 
 ### 0.2 — Universal Error Response Envelopes
@@ -95,7 +95,7 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
   ```json
   [
     {
-      "id": "1",
+      "id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
       "countryCode": "IN",
       "dialCode": "+91",
       "countryName": "India",
@@ -113,12 +113,12 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
 - **Response (200 OK)**:
   ```json
   [
-    { "id": "1", "name": "Uttarakhand Power Corporation Limited (UPCL)", "status": "ACTIVE" },
-    { "id": "2", "name": "Uttar Pradesh Power Corporation Limited (UPPCL)", "status": "ACTIVE" },
-    { "id": "3", "name": "Reliance Power Ltd", "status": "ACTIVE" },
-    { "id": "4", "name": "Adani Power Ltd", "status": "ACTIVE" },
-    { "id": "5", "name": "Tata Power Company Limited (TPCL)", "status": "ACTIVE" },
-    { "id": "6", "name": "National Thermal Power Corporation (NTPC)", "status": "ACTIVE" }
+    { "id": "11111111-1111-4111-8111-111111111111", "name": "Uttarakhand Power Corporation Limited (UPCL)", "status": "ACTIVE" },
+    { "id": "22222222-2222-4222-8222-222222222222", "name": "Uttar Pradesh Power Corporation Limited (UPPCL)", "status": "ACTIVE" },
+    { "id": "33333333-3333-4333-8333-333333333333", "name": "Reliance Power Ltd", "status": "ACTIVE" },
+    { "id": "44444444-4444-4444-8444-444444444444", "name": "Adani Power Ltd", "status": "ACTIVE" },
+    { "id": "55555555-5555-4555-8555-555555555555", "name": "Tata Power Company Limited (TPCL)", "status": "ACTIVE" },
+    { "id": "66666666-6666-4666-8666-666666666666", "name": "National Thermal Power Corporation (NTPC)", "status": "ACTIVE" }
   ]
   ```
 
@@ -134,7 +134,7 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
 - **Response (201 Created)**:
   ```json
   {
-    "id": "7",
+    "id": "77777777-7777-4777-8777-777777777777",
     "name": "Torrent Power Ltd",
     "status": "ACTIVE",
     "createdAt": "2026-08-08T20:00:00Z"
@@ -156,15 +156,15 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
     "error": "COMPANY_IN_USE",
     "message": "Cannot delete or deactivate 'Uttarakhand Power Corporation Limited (UPCL)' because 2 buildings are currently linked to it. Reassign or remove these buildings first.",
     "metadata": {
-      "companyId": "1",
+      "companyId": "11111111-1111-4111-8111-111111111111",
       "companyName": "Uttarakhand Power Corporation Limited (UPCL)",
       "linkedBuildingCount": 2,
       "affectedBuildings": [
         {
-          "buildingId": "101",
+          "buildingId": "b1111111-1111-4111-8111-111111111111",
           "buildingName": "Sunshine Heights",
           "landlord": {
-            "landlordId": "10",
+            "landlordId": "u1000000-0000-4000-8000-000000000010",
             "fullName": "Rajesh Kumar",
             "email": "rajesh.landlord@example.com"
           }
@@ -217,7 +217,7 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
   {
     "token": "eyJhbGciOiJIUzI1NiJ9...",
     "role": "LANDLORD",
-    "userId": "10",
+    "userId": "u1000000-0000-4000-8000-000000000010",
     "fullName": "Rajesh Kumar",
     "mustChangePassword": false
   }
@@ -247,8 +247,8 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
   ```json
   [
     {
-      "requestId": "req_99812",
-      "userId": "45",
+      "requestId": "req_99812-4444-8888-9999",
+      "userId": "u4500000-0000-4000-8000-000000000045",
       "userName": "Ramesh Kumar",
       "userRole": "TENANT",
       "email": "ramesh@example.com",
@@ -332,7 +332,7 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
 - **Response (201 Created)**:
   ```json
   {
-    "adminId": "2",
+    "adminId": "a2000000-0000-4000-8000-000000000002",
     "fullName": "Vikram Singh",
     "email": "vikram.admin@myroomledger.com",
     "role": "ADMIN",
@@ -470,16 +470,16 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
     "state": "Uttarakhand",
     "pincode": "248001",
     "totalFloors": 4,
-    "powerCompanyId": "1",
+    "powerCompanyId": "11111111-1111-4111-8111-111111111111",
     "connectionNumber": "UPCL-CONN-10023"
   }
   ```
 - **Response (201 Created)**:
   ```json
   {
-    "buildingId": "101",
+    "buildingId": "b1111111-1111-4111-8111-111111111111",
     "name": "Sunshine Heights",
-    "powerCompanyId": "1",
+    "powerCompanyId": "11111111-1111-4111-8111-111111111111",
     "powerCompanyName": "Uttarakhand Power Corporation Limited (UPCL)",
     "connectionNumber": "UPCL-CONN-10023",
     "createdAt": "2026-08-08T20:00:00Z"
@@ -567,7 +567,7 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
 - **Request Body**:
   ```json
   {
-    "powerCompanyId": "1",
+    "powerCompanyId": "11111111-1111-4111-8111-111111111111",
     "connectionNumber": "UPCL-CONN-10023",
     "billSerialNumber": "UPCL-2026-06-88192",
     "billCycleStart": "2026-06-01",
@@ -578,15 +578,15 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
     "masterBillAmount": 28500.00,
     "dueDate": "2026-07-20",
     "notes": "June master bill for Sunshine Heights",
-    "digitalBillDocId": "501"
+    "digitalBillDocId": "d5010000-0000-4000-8000-000000000501"
   }
   ```
 - **Response (201 Created)**:
   ```json
   {
-    "billId": "501",
-    "buildingId": "101",
-    "powerCompanyId": "1",
+    "billId": "m5010000-0000-4000-8000-000000000501",
+    "buildingId": "b1111111-1111-4111-8111-111111111111",
+    "powerCompanyId": "11111111-1111-4111-8111-111111111111",
     "billSerialNumber": "UPCL-2026-06-88192",
     "connectionNumber": "UPCL-CONN-10023",
     "masterBillAmount": 28500.00,
@@ -632,7 +632,7 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
 - **Response (201 Created)**:
   ```json
   {
-    "documentId": "501",
+    "documentId": "d5010000-0000-4000-8000-000000000501",
     "originalFileName": "upcl_july_bill.pdf",
     "mimeType": "application/pdf",
     "fileSizeBytes": 1048576,
@@ -736,23 +736,23 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
 - **Response (200 OK)**:
   ```json
   {
-    "roomId": "101",
+    "roomId": "r1010000-0000-4000-8000-000000000101",
     "roomName": "Room 11",
     "totalOutstanding": 3200.00,
     "cycles": [
       {
-        "billingCycleId": "201",
+        "billingCycleId": "bc201000-0000-4000-8000-000000000201",
         "cycleStart": "2026-06-01",
         "cycleEnd": "2026-06-30",
         "rent": {
-          "ledgerId": "301",
+          "ledgerId": "rl301000-0000-4000-8000-000000000301",
           "amount": 2500.00,
           "amountPaid": 1000.00,
           "pending": 1500.00,
           "status": "PARTIALLY_PAID"
         },
         "electricity": {
-          "ledgerId": "401",
+          "ledgerId": "el401000-0000-4000-8000-000000000401",
           "amount": 1700.00,
           "amountPaid": 0.00,
           "pending": 1700.00,

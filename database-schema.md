@@ -157,7 +157,7 @@ enum RequestStatus {
 
 // MODEL DEFINITIONS
 model PowerSupplyCompany {
-  id        BigInt        @id @default(autoincrement())
+  id        String        @id @default(uuid()) @db.Uuid
   name      String        @unique @db.VarChar(150) // e.g. UPCL, UPPCL, Reliance Power Ltd
   status    CompanyStatus @default(ACTIVE)
   createdAt DateTime      @default(now()) @map("created_at")
@@ -172,7 +172,7 @@ model PowerSupplyCompany {
 }
 
 model CountryCode {
-  id                 BigInt   @id @default(autoincrement())
+  id                 String   @id @default(uuid()) @db.Uuid
   countryCode        String   @unique @map("country_code") @db.VarChar(5) // ISO alpha-2 e.g. "IN"
   dialCode           String   @map("dial_code") @db.VarChar(10)          // e.g. "+91"
   countryName        String   @map("country_name") @db.VarChar(100)      // e.g. "India"
@@ -192,7 +192,7 @@ model CountryCode {
 }
 
 model User {
-  id                 BigInt      @id @default(autoincrement())
+  id                 String      @id @default(uuid()) @db.Uuid
   fullName           String      @map("full_name") @db.VarChar(120)
   email              String?     @unique @db.VarChar(150)
   phoneNumber        String      @unique @map("phone_number") @db.VarChar(20)
@@ -214,11 +214,11 @@ model User {
 }
 
 model PasswordResetRequest {
-  id                 BigInt        @id @default(autoincrement())
-  userId             BigInt        @map("user_id")
+  id                 String        @id @default(uuid()) @db.Uuid
+  userId             String        @map("user_id") @db.Uuid
   status             RequestStatus @default(PENDING)
   deliveryChannel    String        @map("delivery_channel") @db.VarChar(50) // EMAIL, ADMIN_MODAL_DISPLAY, SMS
-  approvedByUserId   BigInt?       @map("approved_by_user_id")
+  approvedByUserId   String?       @map("approved_by_user_id") @db.Uuid
   rejectionReason    String?       @map("rejection_reason") @db.Text
   createdAt          DateTime      @default(now()) @map("created_at")
   updatedAt          DateTime      @updatedAt @map("updated_at")
@@ -231,18 +231,18 @@ model PasswordResetRequest {
 }
 
 model Building {
-  id              BigInt             @id @default(autoincrement())
-  landlordId      BigInt             @map("landlord_id")
-  powerCompanyId  BigInt             @map("power_company_id")
-  connectionNumber String            @map("connection_number") @db.VarChar(100) // Currently active connection number
-  name            String             @db.VarChar(150)
-  addressLine     String             @map("address_line") @db.Text
-  city            String             @db.VarChar(100)
-  state           String             @db.VarChar(100)
-  pincode         String             @db.VarChar(10)
-  totalFloors     Int                @map("total_floors")
-  createdAt       DateTime           @default(now()) @map("created_at")
-  updatedAt       DateTime           @updatedAt @map("updated_at")
+  id               String             @id @default(uuid()) @db.Uuid
+  landlordId       String             @map("landlord_id") @db.Uuid
+  powerCompanyId   String             @map("power_company_id") @db.Uuid
+  connectionNumber String             @map("connection_number") @db.VarChar(100) // Currently active connection number
+  name             String             @db.VarChar(150)
+  addressLine      String             @map("address_line") @db.Text
+  city             String             @db.VarChar(100)
+  state            String             @db.VarChar(100)
+  pincode          String             @db.VarChar(10)
+  totalFloors      Int                @map("total_floors")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
 
   // Relationships
   landlord         User                      @relation("LandlordBuildings", fields: [landlordId], references: [id], onDelete: Cascade)
@@ -258,9 +258,9 @@ model Building {
 }
 
 model BuildingPowerConnection {
-  id               BigInt                   @id @default(autoincrement())
-  buildingId       BigInt                   @map("building_id")
-  powerCompanyId   BigInt                   @map("power_company_id")
+  id               String                   @id @default(uuid()) @db.Uuid
+  buildingId       String                   @map("building_id") @db.Uuid
+  powerCompanyId   String                   @map("power_company_id") @db.Uuid
   connectionNumber String                   @map("connection_number") @db.VarChar(100)
   startDate        DateTime                 @map("start_date") @db.Date
   endDate          DateTime?                @map("end_date") @db.Date
@@ -278,8 +278,8 @@ model BuildingPowerConnection {
 }
 
 model Floor {
-  id              BigInt      @id @default(autoincrement())
-  buildingId      BigInt      @map("building_id")
+  id              String      @id @default(uuid()) @db.Uuid
+  buildingId      String      @map("building_id") @db.Uuid
   floorNumber     Int         @map("floor_number") // 0 = Ground Floor
   name            String      @db.VarChar(50)
   createdAt       DateTime    @default(now()) @map("created_at")
@@ -296,8 +296,8 @@ model Floor {
 }
 
 model Room {
-  id              BigInt             @id @default(autoincrement())
-  floorId         BigInt             @map("floor_id")
+  id              String             @id @default(uuid()) @db.Uuid
+  floorId         String             @map("floor_id") @db.Uuid
   roomNumber      String             @map("room_number") @db.VarChar(20) // e.g. Room 01, Room 11
   occupancyType   OccupancyType      @default(SINGLE) @map("occupancy_type")
   baseRentAmount  Decimal            @map("base_rent_amount") @db.Decimal(10, 2)
@@ -319,8 +319,8 @@ model Room {
 }
 
 model SharedBathroom {
-  id              BigInt         @id @default(autoincrement())
-  floorId         BigInt         @map("floor_id")
+  id              String         @id @default(uuid()) @db.Uuid
+  floorId         String         @map("floor_id") @db.Uuid
   bathNumber      String         @map("bath_number") @db.VarChar(20) // e.g. Bath 01, Bath 11
   status          FacilityStatus @default(FUNCTIONAL)
   createdAt       DateTime       @default(now()) @map("created_at")
@@ -332,8 +332,8 @@ model SharedBathroom {
 }
 
 model SharedToilet {
-  id              BigInt         @id @default(autoincrement())
-  floorId         BigInt         @map("floor_id")
+  id              String         @id @default(uuid()) @db.Uuid
+  floorId         String         @map("floor_id") @db.Uuid
   toiletNumber    String         @map("toilet_number") @db.VarChar(20) // e.g. Toilet 01, Toilet 11
   status          FacilityStatus @default(FUNCTIONAL)
   createdAt       DateTime       @default(now()) @map("created_at")
@@ -345,9 +345,9 @@ model SharedToilet {
 }
 
 model Tenant {
-  id               BigInt       @id @default(autoincrement())
-  userId           BigInt       @unique @map("user_id")
-  currentRoomId    BigInt?      @map("current_room_id")
+  id               String       @id @default(uuid()) @db.Uuid
+  userId           String       @unique @map("user_id") @db.Uuid
+  currentRoomId    String?      @map("current_room_id") @db.Uuid
   emergencyContact String?      @map("emergency_contact") @db.VarChar(20)
   idProofType      String?      @map("id_proof_type") @db.VarChar(50)
   idProofNumber    String?      @map("id_proof_number") @db.VarChar(100)
@@ -367,9 +367,9 @@ model Tenant {
 }
 
 model TenancyHistory {
-  id            BigInt    @id @default(autoincrement())
-  tenantId      BigInt    @map("tenant_id")
-  roomId        BigInt    @map("room_id")
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  roomId        String    @map("room_id") @db.Uuid
   checkInDate   DateTime  @map("check_in_date") @db.Date
   checkOutDate  DateTime? @map("check_out_date") @db.Date
   moveOutReason String?   @map("move_out_reason") @db.Text
@@ -384,8 +384,8 @@ model TenancyHistory {
 }
 
 model BuildingExpense {
-  id          BigInt          @id @default(autoincrement())
-  buildingId  BigInt          @map("building_id")
+  id          String          @id @default(uuid()) @db.Uuid
+  buildingId  String          @map("building_id") @db.Uuid
   category    ExpenseCategory
   title       String          @db.VarChar(200)
   amount      Decimal         @db.Decimal(10, 2)
@@ -400,9 +400,9 @@ model BuildingExpense {
 }
 
 model SupplierMasterBill {
-  id                   BigInt             @id @default(autoincrement())
-  buildingId           BigInt             @map("building_id")
-  powerCompanyId       BigInt             @map("power_company_id")
+  id                   String             @id @default(uuid()) @db.Uuid
+  buildingId           String             @map("building_id") @db.Uuid
+  powerCompanyId       String             @map("power_company_id") @db.Uuid
 
   // Identifiers
   billSerialNumber     String?            @map("bill_serial_number") @db.VarChar(100)   // Unique invoice/bill number from physical bill
@@ -432,7 +432,7 @@ model SupplierMasterBill {
 
   // Audit & Documents
   notes                String?            @db.Text
-  digitalBillDocId     BigInt?            @map("digital_bill_doc_id")
+  digitalBillDocId     String?            @map("digital_bill_doc_id") @db.Uuid
   createdAt            DateTime           @default(now()) @map("created_at")
 
   building             Building           @relation(fields: [buildingId], references: [id], onDelete: Cascade)
@@ -447,8 +447,8 @@ model SupplierMasterBill {
 }
 
 model RentCycleConfig {
-  id             BigInt    @id @default(autoincrement())
-  roomId         BigInt    @map("room_id")
+  id             String    @id @default(uuid()) @db.Uuid
+  roomId         String    @map("room_id") @db.Uuid
   cycleStartDay  Int       @map("cycle_start_day") // 1..31
   activeFromDate DateTime  @map("active_from_date") @db.Date
   activeToDate   DateTime? @map("active_to_date") @db.Date
@@ -462,9 +462,9 @@ model RentCycleConfig {
 }
 
 model BillingCycle {
-  id                 BigInt       @id @default(autoincrement())
-  roomId             BigInt       @map("room_id")
-  rentCycleConfigId  BigInt       @map("rent_cycle_config_id")
+  id                 String       @id @default(uuid()) @db.Uuid
+  roomId             String       @map("room_id") @db.Uuid
+  rentCycleConfigId  String       @map("rent_cycle_config_id") @db.Uuid
   cycleStartDate     DateTime     @map("cycle_start_date") @db.Date
   cycleEndDate       DateTime     @map("cycle_end_date") @db.Date
   createdAt          DateTime     @default(now()) @map("created_at")
@@ -481,9 +481,9 @@ model BillingCycle {
 }
 
 model BillingCycleTenantsSnapshot {
-  id                 BigInt       @id @default(autoincrement())
-  billingCycleId     BigInt       @map("billing_cycle_id")
-  tenantId           BigInt       @map("tenant_id")
+  id                 String       @id @default(uuid()) @db.Uuid
+  billingCycleId     String       @map("billing_cycle_id") @db.Uuid
+  tenantId           String       @map("tenant_id") @db.Uuid
   tenantNameSnapshot String       @map("tenant_name_snapshot") @db.VarChar(120)
   createdAt          DateTime     @default(now()) @map("created_at")
 
@@ -495,8 +495,8 @@ model BillingCycleTenantsSnapshot {
 }
 
 model RoomRentLedger {
-  id                   BigInt               @id @default(autoincrement())
-  billingCycleId       BigInt               @unique @map("billing_cycle_id")
+  id                   String               @id @default(uuid()) @db.Uuid
+  billingCycleId       String               @unique @map("billing_cycle_id") @db.Uuid
   amount               Decimal              @db.Decimal(10, 2)
   amountPaid           Decimal              @default(0.00) @map("amount_paid") @db.Decimal(10, 2) // Running sum of all PaymentTransactions
   status               PaymentStatus        @default(UNPAID)
@@ -513,8 +513,8 @@ model RoomRentLedger {
 }
 
 model ElectricityLedger {
-  id                   BigInt               @id @default(autoincrement())
-  billingCycleId       BigInt               @unique @map("billing_cycle_id")
+  id                   String               @id @default(uuid()) @db.Uuid
+  billingCycleId       String               @unique @map("billing_cycle_id") @db.Uuid
   unitsConsumed        Decimal?             @map("units_consumed") @db.Decimal(10, 2)
   ratePerUnit          Decimal?             @map("rate_per_unit") @db.Decimal(8, 2)
   amount               Decimal              @db.Decimal(10, 2)                                      // Formula: Units * Rate
@@ -533,10 +533,10 @@ model ElectricityLedger {
 }
 
 model PaymentTransaction {
-  id                   BigInt             @id @default(autoincrement())
+  id                   String             @id @default(uuid()) @db.Uuid
   ledgerType           LedgerType         @map("ledger_type")                                        // Discriminator: ROOM_RENT | ELECTRICITY
-  rentLedgerId         BigInt?            @map("rent_ledger_id")                                     // Non-null when ledgerType = ROOM_RENT
-  electricityLedgerId  BigInt?            @map("electricity_ledger_id")                              // Non-null when ledgerType = ELECTRICITY
+  rentLedgerId         String?            @map("rent_ledger_id") @db.Uuid                            // Non-null when ledgerType = ROOM_RENT
+  electricityLedgerId  String?            @map("electricity_ledger_id") @db.Uuid                     // Non-null when ledgerType = ELECTRICITY
   amountPaid           Decimal            @map("amount_paid") @db.Decimal(10, 2)                     // Must be > 0; validated at application layer
   paymentDate          DateTime           @map("payment_date")                                        // User-supplied or defaults to server UTC timestamp
   paymentMethod        String             @map("payment_method") @db.VarChar(50)                     // UPI | CASH | BANK_TRANSFER
@@ -554,8 +554,8 @@ model PaymentTransaction {
 }
 
 model DocumentMetadata {
-  id                 BigInt       @id @default(autoincrement())
-  uploadedByUserId   BigInt       @map("uploaded_by_user_id")
+  id                 String       @id @default(uuid()) @db.Uuid
+  uploadedByUserId   String       @map("uploaded_by_user_id") @db.Uuid
   objectKey          String       @unique @map("object_key") @db.VarChar(255) // Cloudflare R2 object key
   encryptionIv       String       @map("encryption_iv") @db.VarChar(64)       // AES-256 GCM IV hex
   encryptionAuthTag  String       @map("encryption_auth_tag") @db.VarChar(64) // AES-256 Auth Tag
@@ -571,9 +571,9 @@ model DocumentMetadata {
 }
 
 model Complaint {
-  id             BigInt            @id @default(autoincrement())
-  tenantId       BigInt            @map("tenant_id")
-  roomId         BigInt            @map("room_id")
+  id             String            @id @default(uuid()) @db.Uuid
+  tenantId       String            @map("tenant_id") @db.Uuid
+  roomId         String            @map("room_id") @db.Uuid
   category       ComplaintCategory
   severity       ComplaintSeverity @default(MEDIUM)
   title          String            @db.VarChar(200)

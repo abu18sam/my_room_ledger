@@ -25,15 +25,15 @@ Used for authentication failures, authorization blocks, state conflicts, resourc
   "error": "COMPANY_IN_USE",
   "message": "Cannot delete 'Uttarakhand Power Corporation Limited (UPCL)' because 3 buildings are currently linked to it. Reassign these buildings to another power company first.",
   "metadata": {
-    "companyId": "1",
+    "companyId": "11111111-1111-4111-8111-111111111111",
     "companyName": "Uttarakhand Power Corporation Limited (UPCL)",
     "linkedBuildingCount": 3,
     "affectedBuildings": [
       {
-        "buildingId": "101",
+        "buildingId": "b1111111-1111-4111-8111-111111111111",
         "buildingName": "Sunshine Heights",
         "landlord": {
-          "landlordId": "10",
+          "landlordId": "u1000000-0000-4000-8000-000000000010",
           "fullName": "Rajesh Kumar",
           "email": "rajesh@example.com"
         }
@@ -117,24 +117,24 @@ Returned when an Admin attempts `DELETE /api/v1/admin/power-companies/{id}` or d
   "error": "COMPANY_IN_USE",
   "message": "Cannot delete or deactivate 'Uttarakhand Power Corporation Limited (UPCL)' because 2 buildings are currently linked to it. Reassign or remove these buildings first.",
   "metadata": {
-    "companyId": "1",
+    "companyId": "11111111-1111-4111-8111-111111111111",
     "companyName": "Uttarakhand Power Corporation Limited (UPCL)",
     "linkedBuildingCount": 2,
     "affectedBuildings": [
       {
-        "buildingId": "101",
+        "buildingId": "b1111111-1111-4111-8111-111111111111",
         "buildingName": "Sunshine Heights",
         "landlord": {
-          "landlordId": "10",
+          "landlordId": "u1000000-0000-4000-8000-000000000010",
           "fullName": "Rajesh Kumar",
           "email": "rajesh.landlord@example.com"
         }
       },
       {
-        "buildingId": "102",
+        "buildingId": "b2222222-2222-4222-8222-222222222222",
         "buildingName": "Green Valley Residency",
         "landlord": {
-          "landlordId": "10",
+          "landlordId": "u1000000-0000-4000-8000-000000000010",
           "fullName": "Rajesh Kumar",
           "email": "rajesh.landlord@example.com"
         }
@@ -155,19 +155,19 @@ Returned when a Landlord attempts `POST /api/v1/buildings/{id}/switch-power-supp
   "error": "PENDING_SUPPLIER_BILLS_EXIST",
   "message": "Cannot switch power supplier. There are 2 unpaid supplier master bills for the current supplier 'UPCL'. All pending bills must be settled first.",
   "metadata": {
-    "currentPowerCompanyId": "1",
+    "currentPowerCompanyId": "11111111-1111-4111-8111-111111111111",
     "currentPowerCompanyName": "Uttarakhand Power Corporation Limited (UPCL)",
     "pendingBillCount": 2,
     "pendingBills": [
       {
-        "billId": "501",
+        "billId": "m5010000-0000-4000-8000-000000000501",
         "masterBillAmount": 28500.00,
         "amountPaid": 0.00,
         "dueDate": "2026-07-20",
         "status": "OVERDUE"
       },
       {
-        "billId": "502",
+        "billId": "m5020000-0000-4000-8000-000000000502",
         "masterBillAmount": 29100.00,
         "amountPaid": 0.00,
         "dueDate": "2026-08-20",
@@ -189,7 +189,7 @@ Returned when `POST /api/v1/ledgers/room-rent/{id}/payments` attempts to record 
   "error": "PAYMENT_EXCEEDS_BALANCE",
   "message": "Payment amount of ₹3,000.00 exceeds remaining balance of ₹1,500.00 for this ledger cycle.",
   "metadata": {
-    "ledgerId": "301",
+    "ledgerId": "rl301000-0000-4000-8000-000000000301",
     "totalAmount": 2500.00,
     "alreadyPaid": 1000.00,
     "remainingBalance": 1500.00,

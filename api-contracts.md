@@ -652,6 +652,8 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
         "ratePerUnit": 8.00,
         "totalBilled": 2400.00,
         "amountCollected": 2400.00,
+        "paymentDate": "2026-02-28T10:00:00Z",
+        "allocatedToCurrentMasterCycle": true,
         "ledgerStatus": "PAID"
       },
       {
@@ -663,6 +665,8 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
         "ratePerUnit": 8.00,
         "totalBilled": 3600.00,
         "amountCollected": 3600.00,
+        "paymentDate": "2026-03-21T14:30:00Z",
+        "allocatedToCurrentMasterCycle": true,
         "ledgerStatus": "PAID"
       },
       {
@@ -674,6 +678,8 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
         "ratePerUnit": 8.00,
         "totalBilled": 4400.00,
         "amountCollected": 4400.00,
+        "paymentDate": "2026-03-20T16:00:00Z",
+        "allocatedToCurrentMasterCycle": true,
         "ledgerStatus": "PAID"
       }
     ],

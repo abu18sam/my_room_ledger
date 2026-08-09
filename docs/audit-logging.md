@@ -113,12 +113,12 @@ model AuditLog {
 
 | Action Type | Description & Trigger | Target Entity Type | Expected Metadata Payload Keys |
 |---|---|---|---|
-| `SAVE_PAYMENT_TRANSACTION` | Payment recorded against rent or electricity ledger. | `LEDGER` | `transactionId`, `ledgerId`, `ledgerType`, `amountPaid`, `paymentDate`, `paymentMethod`, `newStatus`, `remainingBalance` |
+| `SAVE_PAYMENT_TRANSACTION` | Payment recorded against rent or electricity ledger. | `LEDGER` | `transactionId`, `ledgerId`, `ledgerType`, `amountPaid`, `paymentDate`, `paymentMethod`, `allocatedMasterCycleId`, `newStatus`, `remainingBalance` |
 | `UPDATE_PAYMENT_TRANSACTION` | Landlord updates the chronologically latest payment transaction for a ledger. | `LEDGER` | `transactionId`, `ledgerId`, `previousAmountPaid`, `newAmountPaid`, `previousStatus`, `recalculatedLedgerStatus`, `updatedFields[]` |
 | `GENERATE_BILLING_CYCLE` | Rent & electricity billing cycle created for a room. | `BILLING_CYCLE` | `billingCycleId`, `roomId`, `cycleStart`, `cycleEnd`, `rentAmount`, `electricityAmount` |
 | `CREATE_MASTER_BILL` | Landlord enters supplier master bill for a building. | `SUPPLIER_MASTER_BILL` | `billId`, `buildingId`, `powerCompanyId`, `billSerialNumber`, `connectionNumber`, `masterBillAmount`, `dueDate` |
 | `SETTLE_MASTER_BILL` | Landlord marks supplier master bill as PAID. | `SUPPLIER_MASTER_BILL` | `billId`, `buildingId`, `masterBillAmount`, `paidDate`, `paymentMode`, `paymentReference` |
-| `RECONCILE_ELECTRICITY_BILL` | Landlord executes electricity bill reconciliation comparing tenant collections vs supplier bill. | `SUPPLIER_MASTER_BILL` | `billId`, `buildingId`, `masterBillAmountPaid`, `aggregatedTenantCollections`, `varianceAmount`, `reconciliationStatus`, `surplusAmount`, `deficitAmount` |
+| `RECONCILE_ELECTRICITY_BILL` | Landlord executes electricity bill reconciliation comparing tenant collections vs supplier bill based on paymentDate cutoff. | `SUPPLIER_MASTER_BILL` | `billId`, `buildingId`, `masterBillAmountPaid`, `aggregatedTenantCollections`, `varianceAmount`, `reconciliationStatus`, `surplusAmount`, `deficitAmount`, `paymentDateCutoffRuleEnforced` |
 | `LOG_BUILDING_EXPENSE` | Landlord logs a building operating expense. | `BUILDING_EXPENSE` | `expenseId`, `buildingId`, `category`, `title`, `amount`, `expenseDate` |
 
 ---

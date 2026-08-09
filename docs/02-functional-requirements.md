@@ -335,6 +335,19 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 ---
 
+### 3.16 Tenant Electricity Payment Cutoff & Master Cycle Allocation Rules
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-107** | Tenant electricity payment allocation to building master billing cycles MUST be determined strictly by `PaymentTransaction.paymentDate`, independent of room billing cycle start/end dates. | BR-03.5, docs/billing-and-reconciliation.md |
+| **FR-108** | Payments received on or before `masterCycleEndDate` MUST be allocated to the current building master billing cycle (`paymentDate <= masterCycleEndDate`). | BR-03.5, docs/billing-and-reconciliation.md |
+| **FR-109** | Payments received after `masterCycleEndDate` MUST be excluded from the previous master cycle and allocated to the next building master billing cycle (`paymentDate > masterCycleEndDate`). | BR-03.5, docs/billing-and-reconciliation.md |
+| **FR-110** | Early payments received before a room cycle ends MUST be allocated to the building master cycle window containing `paymentDate`. | BR-03.5, docs/billing-and-reconciliation.md |
+| **FR-111** | Partial payments against a single room electricity ledger MUST be evaluated independently, allocating each `PaymentTransaction` to the master cycle corresponding to its own `paymentDate`. | BR-03.5, BR-14.7 |
+| **FR-112** | Unpaid or overdue ledgers contribute $₹0.00$ to tenant collections for a master cycle until actual cash payment transactions are recorded. | BR-03.5, docs/billing-and-reconciliation.md |
+
+---
+
 ## 4. Traceability Map (FR → AC Group)
 
 | FR IDs | AC Group | Domain |
@@ -360,6 +373,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | FR-89 – FR-96 | AC-89 | Session Force-Logout & Centralized Audit Trail |
 | FR-97 – FR-100 | AC-97 | RBAC Matrix & Payment Transaction Update Rules |
 | FR-101 – FR-106 | AC-101 | Flexible Billing Cycles & Electricity Reconciliation Engine |
+| FR-107 – FR-112 | AC-107 | Tenant Electricity Payment Cutoff & Master Cycle Allocation Rules |
 
 ---
 

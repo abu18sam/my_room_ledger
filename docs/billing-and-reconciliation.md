@@ -144,7 +144,50 @@ $$\text{Reconciliation Outcome} = \begin{cases} \text{SURPLUS} & \text{if } \tex
 
 ---
 
-## 5. System Data Linkages & ERD Mapping
+## 5. Tenant Electricity Payment Cutoff & Master Cycle Allocation Rules
+
+### 5.1 Core Allocation Principle
+Tenant electricity payment allocation to building master billing cycles is strictly driven by the **actual payment date (`PaymentTransaction.paymentDate`)**, NOT by the room billing cycle start/end dates.
+
+$$\text{Target Master Cycle} = \begin{cases} \text{Current Master Cycle } [T_{\text{start}}, T_{\text{end}}] & \text{if } \text{paymentDate} \le T_{\text{end}} \\ \text{Next Master Cycle } [T_{\text{end}}, T_{\text{next\_end}}] & \text{if } \text{paymentDate} > T_{\text{end}} \end{cases}$$
+
+---
+
+### 5.2 Core Scenario & Payment Cutoff Cases
+
+#### System Scenario Baseline
+- **Building Master Electricity Cycle**: **24 Feb 2026 → 24 Mar 2026**
+- **Room 02 Electricity Billing Cycle**: **20 Feb 2026 → 20 Mar 2026**
+
+#### Case 1: Payment Received Within Master Cycle Window
+- **Tenant Payment Date**: **21 Mar 2026**
+- **Condition Check**: `paymentDate (21 Mar)` $\le$ `masterCycleEndDate (24 Mar)` $\rightarrow$ **TRUE**
+- **Allocation Result**:
+  - ✅ Included in **Current Master Billing Cycle (24 Feb → 24 Mar)**.
+  - Summed into `TenantCollected` for the 24 Feb → 24 Mar supplier bill reconciliation.
+
+#### Case 2: Late Payment Received After Master Cycle Cutoff
+- **Tenant Payment Date**: **25 Mar 2026**
+- **Condition Check**: `paymentDate (25 Mar)` $>$ `masterCycleEndDate (24 Mar)` $\rightarrow$ **TRUE**
+- **Allocation Result**:
+  - ❌ **EXCLUDED** from the previous master cycle (24 Feb → 24 Mar).
+  - ✅ Included in **Next Master Billing Cycle (24 Mar → 24 Apr)**.
+  - Prevents retroactive reopening of settled supplier bills.
+
+---
+
+### 5.3 Detailed Edge Case Allocation Matrix
+
+| Edge Case | Scenario Description | System Handling & Allocation Rule |
+|---|---|---|
+| **1. Early Payments** | Tenant pays on **15 Feb 2026** before room cycle ends (20 Mar). | Allocated to the building master cycle window containing `15 Feb 2026` (e.g. 24 Jan → 24 Feb). |
+| **2. Very Late Payments Across Multiple Cycles** | Tenant pays on **28 Apr 2026** for a February room ledger (20 Feb → 20 Mar). | Allocated strictly to the building master cycle window containing `28 Apr 2026` (i.e. **24 Apr → 24 May** master cycle). Never re-opens past closed cycles. |
+| **3. Partial Payments Across Multiple Dates** | Tenant pays ₹1,000 on **20 Mar 2026** and ₹2,600 on **26 Mar 2026** against one ledger. | Each `PaymentTransaction` is evaluated **independently**: <br>• Transaction 1 (₹1,000 on 20 Mar) $\rightarrow$ Allocated to **24 Feb → 24 Mar** Master Cycle. <br>• Transaction 2 (₹2,600 on 26 Mar) $\rightarrow$ Allocated to **24 Mar → 24 Apr** Master Cycle. |
+| **4. Unpaid Bills** | Room ledger remains `UNPAID` / `OVERDUE` during cycle. | ❌ Contributes **₹0.00** to tenant collections for that cycle. Only actual collected cash (`amountPaid`) is summed. |
+
+---
+
+## 6. System Data Linkages & ERD Mapping
 
 ```
 [Building] ──1:N──> [SupplierMasterBill] (billCycleStart, billCycleEnd, masterBillAmount, surplusAmount, deficitAmount)
@@ -159,8 +202,9 @@ $$\text{Reconciliation Outcome} = \begin{cases} \text{SURPLUS} & \text{if } \tex
 
 ---
 
-## 6. Future Enhancements & Tracking Roadmap
+## 7. Future Enhancements & Tracking Roadmap
 
 1. **Automated Utility API Integration**: Direct API sync with state power utilities (UPCL, UPPCL, TPDDL) to auto-fetch master bill amounts and due dates.
 2. **Automated Tenant Reminder Engine**: Scheduled SMS/WhatsApp push notifications triggered when electricity submeter readings are recorded.
 3. **AI-Powered Deficit Forecasting**: Machine learning models analyzing historical submeter trends to alert landlords of projected monthly electricity deficits 10 days before master bill due dates.
+

@@ -104,10 +104,14 @@ This document serves as the **single authoritative source of truth for all domai
 - Updating Room Rent status to `PAID` MUST NEVER alter Electricity Bill status, and vice versa.
 - All dashboards, reports, and API responses MUST present Rental Income, Electricity Surplus, and Electricity Deficit as distinct, un-merged financial metrics.
 
-#### BR-03.5 — Multi-Cycle Overlap & Reconciliation Synchronization Rule
+#### BR-03.5 — Multi-Cycle Overlap & Payment Date Cutoff Allocation Rule
 - Landlord electricity reconciliation is computed dynamically upon settling a `SupplierMasterBill`.
-- The system sums actual tenant collections (`PaymentTransaction.amountPaid`) across all room electricity ledgers whose billing cycle intersects the master bill cycle range `[billCycleStart, billCycleEnd]`.
-- Unpaid or overdue tenant ledgers contribute ONLY actual collected cash towards reconciliation; subsequent tenant payments dynamically adjust the period's reconciliation status.
+- **Payment Date-Based Allocation**: Allocation of tenant electricity collections to a building master billing cycle is strictly driven by the **actual payment date (`PaymentTransaction.paymentDate`)**, NOT by the room billing cycle start/end dates.
+- **Allocation Rule**:
+  - If `paymentDate <= masterCycleEndDate`: The payment is allocated to the **Current Master Cycle**.
+  - If `paymentDate > masterCycleEndDate`: The payment is excluded from the previous cycle and allocated to the **Next Master Cycle** (or master cycle window containing `paymentDate`).
+- **Partial Payment Allocation**: Multiple payments against a single room ledger are evaluated independently based on each transaction's own `paymentDate`.
+- Unpaid or overdue tenant ledgers contribute $₹0.00$ to tenant collections for a cycle window until actual cash payments are recorded. See [`docs/billing-and-reconciliation.md`](billing-and-reconciliation.md#5-tenant-electricity-payment-cutoff--master-cycle-allocation-rules) for full specifications.
 
 ---
 

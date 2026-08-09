@@ -83,6 +83,10 @@
 | **Electricity Reconciliation Engine** | 3-step calculation algorithm executing upon supplier master bill payment to compare aggregated tenant collections against supplier bill paid and classify outcome into Surplus, Deficit, or Break-even. | BR-03.3, BR-03.5, FR-103, AC-101.2, docs/billing-and-reconciliation.md |
 | **Tenant Collection Aggregation** | The sum of actual cash collected (`PaymentTransaction.amountPaid`) from tenants across all room electricity ledgers whose cycle intersects the building master bill window `[billCycleStart, billCycleEnd]`. | BR-03.5, FR-103, AC-101.2, docs/billing-and-reconciliation.md |
 | **Surplus/Deficit Variance** | The financial difference ($\text{TenantCollections} - \text{MasterBillPaid}$). Positive variance creates a Surplus (`surplusAmount`); negative variance creates a Landlord Deficit (`deficitAmount`). Pass-through funds strictly excluded from Net Profit. | BR-03.1, BR-03.3, FR-104, AC-101.3, docs/billing-and-reconciliation.md |
+| **Payment Cutoff Rule** | Mandatory allocation logic assigning tenant electricity payments to building master cycles based strictly on `PaymentTransaction.paymentDate` ($\le \text{masterCycleEndDate} \rightarrow$ Current Cycle; $> \text{masterCycleEndDate} \rightarrow$ Next Cycle), independent of room billing cycle dates. | BR-03.5, FR-107–109, AC-107.1–2, docs/billing-and-reconciliation.md |
+| **Master Cycle Allocation** | The derived assignment of a tenant payment transaction to a specific building master electricity billing cycle window based on payment date timestamp. | BR-03.5, FR-107, AC-107.1, docs/billing-and-reconciliation.md |
+| **Payment Date Allocation** | Allocation strategy prioritizing actual cash receipt date (`paymentDate`) over room billing period start/end dates for reconciliation accounting. | BR-03.5, FR-107, AC-107.1, docs/billing-and-reconciliation.md |
+
 
 
 

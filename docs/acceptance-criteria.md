@@ -395,6 +395,21 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 
 ---
 
+## AC-107 — Tenant Electricity Payment Cutoff & Master Cycle Allocation Rules
+
+**Requirements:** FR-107, FR-108, FR-109, FR-110, FR-111, FR-112
+
+| ID | Criterion |
+|----|---|
+| **AC-107.1** | A tenant electricity payment received on or before `masterCycleEndDate` (e.g. 21 Mar for a 24 Feb → 24 Mar cycle) is allocated to the current building master cycle reconciliation. |
+| **AC-107.2** | A tenant electricity payment received after `masterCycleEndDate` (e.g. 25 Mar for a 24 Feb → 24 Mar cycle) is strictly excluded from the previous cycle and allocated to the next building master cycle (24 Mar → 24 Apr). |
+| **AC-107.3** | Early payments made before room cycle end date but within the active master cycle window (e.g. 15 Feb) are allocated to the master cycle window containing `paymentDate`. |
+| **AC-107.4** | Multi-cycle delayed payments (e.g. paid 28 Apr for a Feb room ledger) are assigned strictly to the master cycle window containing `paymentDate` (24 Apr → 24 May). Past settled cycles are never re-opened. |
+| **AC-107.5** | Multiple partial payments against a single room electricity ledger on different dates are split independently into their respective master cycle windows based on each transaction's `paymentDate`. |
+| **AC-107.6** | Unpaid or overdue ledgers contribute $₹0.00$ to tenant collections for a master cycle until actual cash payment transactions are recorded. |
+
+---
+
 ## Gate
 
 **Awaiting user confirmation.**

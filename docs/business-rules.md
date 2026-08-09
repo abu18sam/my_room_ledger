@@ -57,7 +57,11 @@ This document serves as the **single authoritative source of truth for all domai
 ---
 
 ### BR-02: Dynamic & Non-Calendar Rent Cycles
+> **Single Source of Truth**: Detailed mathematical calculations, overlap rules, and edge cases for flexible non-calendar billing cycles are indexed in [`docs/billing-and-reconciliation.md`](billing-and-reconciliation.md).
+
 - Rent cycles are flexible and can start on any day of the month (e.g., 5th to 4th, 15th to 14th).
+- Each room within a building can operate on an independent billing cycle schedule.
+- Room Rent and Electricity cycles within the same room can have different start/end dates.
 - Landlords can modify cycle start dates mid-tenancy. Cycle history must be preserved.
 
 ---
@@ -80,6 +84,8 @@ This document serves as the **single authoritative source of truth for all domai
     2. **Landlord Rental Income** (if collections result in a deficit), logged as a `WATER_MOTOR_ELECTRICITY` or `COMMON_ELECTRICITY` Building Operating Expense.
 
 #### BR-03.3 — Dynamic Billing Period & 3-Scenario Reconciliation
+> **Full Engine Specification**: See [`docs/billing-and-reconciliation.md`](billing-and-reconciliation.md) for step-by-step algorithms, pro-rata formulas, and concrete numerical examples.
+
 - **Dynamic Utility Billing Cycle**: Billing periods for electricity pass-through are dynamic, following the power supply company's bill cycle dates (not restricted to calendar months).
 - **3-Scenario Reconciliation Ledger**:
   $$\text{Electricity Variance} = (\text{Tenant Electricity Collected}) - (\text{Supplier Master Bill Amount})$$
@@ -97,6 +103,11 @@ This document serves as the **single authoritative source of truth for all domai
 #### BR-03.4 — Strict Separation Invariants
 - Updating Room Rent status to `PAID` MUST NEVER alter Electricity Bill status, and vice versa.
 - All dashboards, reports, and API responses MUST present Rental Income, Electricity Surplus, and Electricity Deficit as distinct, un-merged financial metrics.
+
+#### BR-03.5 — Multi-Cycle Overlap & Reconciliation Synchronization Rule
+- Landlord electricity reconciliation is computed dynamically upon settling a `SupplierMasterBill`.
+- The system sums actual tenant collections (`PaymentTransaction.amountPaid`) across all room electricity ledgers whose billing cycle intersects the master bill cycle range `[billCycleStart, billCycleEnd]`.
+- Unpaid or overdue tenant ledgers contribute ONLY actual collected cash towards reconciliation; subsequent tenant payments dynamically adjust the period's reconciliation status.
 
 ---
 

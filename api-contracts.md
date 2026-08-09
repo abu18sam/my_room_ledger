@@ -621,6 +621,66 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
   ```
 - **Error**: HTTP 409 `RESOURCE_ALREADY_PAID` if bill is already `PAID`.
 
+### `GET /api/v1/buildings/{buildingId}/electricity-reconciliation/{masterBillId}`
+- **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN`
+- **Purpose**: Retrieve detailed audit reconciliation breakdown comparing tenant electricity collections vs master bill paid.
+- **Response (200 OK)**:
+  ```json
+  {
+    "masterBillId": "m5010000-0000-4000-8000-000000000501",
+    "buildingId": "b1111111-1111-4111-8111-111111111111",
+    "buildingName": "Sunshine Heights",
+    "powerCompanyName": "Uttarakhand Power Corporation Limited (UPCL)",
+    "connectionNumber": "UPCL-CONN-10023",
+    "masterBillCycle": {
+      "startDate": "2026-02-24",
+      "endDate": "2026-03-24"
+    },
+    "masterBillAmountPaid": 10000.00,
+    "aggregatedTenantCollections": 10400.00,
+    "varianceAmount": 400.00,
+    "reconciliationStatus": "SURPLUS",
+    "surplusAmount": 400.00,
+    "deficitAmount": 0.00,
+    "overlappingRoomCycles": [
+      {
+        "roomId": "r1010000-0000-4000-8000-000000000101",
+        "roomName": "Room 01",
+        "cycleStartDate": "2026-02-04",
+        "cycleEndDate": "2026-03-04",
+        "unitsConsumed": 300.00,
+        "ratePerUnit": 8.00,
+        "totalBilled": 2400.00,
+        "amountCollected": 2400.00,
+        "ledgerStatus": "PAID"
+      },
+      {
+        "roomId": "r1020000-0000-4000-8000-000000000102",
+        "roomName": "Room 02",
+        "cycleStartDate": "2026-02-12",
+        "cycleEndDate": "2026-03-12",
+        "unitsConsumed": 450.00,
+        "ratePerUnit": 8.00,
+        "totalBilled": 3600.00,
+        "amountCollected": 3600.00,
+        "ledgerStatus": "PAID"
+      },
+      {
+        "roomId": "r1030000-0000-4000-8000-000000000103",
+        "roomName": "Room 03",
+        "cycleStartDate": "2026-02-20",
+        "cycleEndDate": "2026-03-20",
+        "unitsConsumed": 550.00,
+        "ratePerUnit": 8.00,
+        "totalBilled": 4400.00,
+        "amountCollected": 4400.00,
+        "ledgerStatus": "PAID"
+      }
+    ],
+    "reconciledAt": "2026-03-25T11:00:00Z"
+  }
+  ```
+
 ---
 
 ## 5. Security-First Encrypted File Storage Endpoints

@@ -322,6 +322,19 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 ---
 
+### 3.15 Flexible Billing Cycles & Landlord Electricity Reconciliation Engine
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-101** | The system MUST support independent, non-calendar billing cycle start/end dates ($1..31$) for every room within a building, allowing Room Rent and Electricity cycles to have different cycle dates. | BR-02, docs/billing-and-reconciliation.md |
+| **FR-102** | The system MUST support independent building-level master electricity billing cycles (`[billCycleStart, billCycleEnd]`) configured by external power supply companies (e.g., UPCL, UPPCL). | BR-03.3, docs/billing-and-reconciliation.md |
+| **FR-103** | Upon settlement of a building master bill, the system MUST execute the 3-step reconciliation algorithm to aggregate actual tenant cash collected (`amountPaid`) across all overlapping room electricity ledgers. | BR-03.5, docs/billing-and-reconciliation.md |
+| **FR-104** | The system MUST compare total tenant collections against the master bill paid amount and categorize the outcome into `SURPLUS` (non-zero `surplusAmount`), `DEFICIT` (non-zero `deficitAmount`), or `BREAK_EVEN`. | BR-03.3, docs/billing-and-reconciliation.md |
+| **FR-105** | Unpaid or overdue tenant ledgers contribute ONLY actual collected cash towards reconciliation; late payments by tenants MUST dynamically re-evaluate and update the period's reconciliation status. | BR-03.5, docs/billing-and-reconciliation.md |
+| **FR-106** | Pass-through electricity collections, surplus amounts, and deficit losses MUST be strictly segregated from Net Room Rent Profit calculations across all financial dashboards. | BR-03.1, BR-03.4 |
+
+---
+
 ## 4. Traceability Map (FR → AC Group)
 
 | FR IDs | AC Group | Domain |
@@ -346,6 +359,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | FR-82 – FR-88 | AC-82 | Backend Error Handling Standards & Universal Envelopes |
 | FR-89 – FR-96 | AC-89 | Session Force-Logout & Centralized Audit Trail |
 | FR-97 – FR-100 | AC-97 | RBAC Matrix & Payment Transaction Update Rules |
+| FR-101 – FR-106 | AC-101 | Flexible Billing Cycles & Electricity Reconciliation Engine |
 
 ---
 

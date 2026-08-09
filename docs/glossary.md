@@ -79,6 +79,11 @@
 | **RBAC Matrix** | Centralized single-source-of-truth document (`docs/rbac-matrix.md`) mapping CRUD capabilities across 4 roles (`SUPER_ADMIN`, `ADMIN`, `LANDLORD`, `TENANT`) for all database entities and special operational restrictions. | BR-01.1, FR-97, AC-97.4, docs/rbac-matrix.md |
 | **Last Transaction Update Rule** | Domain rule allowing landlords to update (`PATCH`) ONLY the chronologically latest payment transaction for a ledger cycle (`recordedAt` max), automatically triggering parent ledger balance & status recalculation. | BR-14.7, FR-98, AC-97.1, docs/rbac-matrix.md |
 | **Non-Last Transaction Lock** | Security restriction (`HTTP 409 NON_LAST_TRANSACTION_UPDATE_RESTRICTED`) blocking edits to older (non-latest) payment transaction records to maintain financial ledger history integrity. | BR-14.7, FR-99, AC-97.2, docs/error-handling.md |
+| **Flexible Billing Cycle** | Non-calendar billing cycle structure allowing each room to start/end on any day ($1..31$), with room rent, room electricity, and building master bill cycles operating on independent schedules. | BR-02, FR-101, AC-101.1, docs/billing-and-reconciliation.md |
+| **Electricity Reconciliation Engine** | 3-step calculation algorithm executing upon supplier master bill payment to compare aggregated tenant collections against supplier bill paid and classify outcome into Surplus, Deficit, or Break-even. | BR-03.3, BR-03.5, FR-103, AC-101.2, docs/billing-and-reconciliation.md |
+| **Tenant Collection Aggregation** | The sum of actual cash collected (`PaymentTransaction.amountPaid`) from tenants across all room electricity ledgers whose cycle intersects the building master bill window `[billCycleStart, billCycleEnd]`. | BR-03.5, FR-103, AC-101.2, docs/billing-and-reconciliation.md |
+| **Surplus/Deficit Variance** | The financial difference ($\text{TenantCollections} - \text{MasterBillPaid}$). Positive variance creates a Surplus (`surplusAmount`); negative variance creates a Landlord Deficit (`deficitAmount`). Pass-through funds strictly excluded from Net Profit. | BR-03.1, BR-03.3, FR-104, AC-101.3, docs/billing-and-reconciliation.md |
+
 
 
 

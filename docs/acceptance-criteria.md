@@ -381,6 +381,20 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 
 ---
 
+## AC-101 — Flexible Billing Cycles & Electricity Reconciliation Engine
+
+**Requirements:** FR-101, FR-102, FR-103, FR-104, FR-105, FR-106
+
+| ID | Criterion |
+|----|---|
+| **AC-101.1** | Rooms within the same building can be created and configured with independent, non-calendar billing cycles starting on any date ($1..31$), with Room Rent and Electricity cycles operating on distinct start/end dates. |
+| **AC-101.2** | Settling a building's `SupplierMasterBill` executes the 3-step reconciliation engine, correctly aggregating actual tenant collections (`PaymentTransaction.amountPaid`) across all overlapping room electricity ledgers. |
+| **AC-101.3** | When aggregated tenant collections exceed supplier master bill amount paid, `SupplierMasterBill` records `status = SURPLUS` and non-zero `surplusAmount`; when collections are less, it records `status = DEFICIT` and non-zero `deficitAmount`. |
+| **AC-101.4** | Unpaid or overdue tenant ledgers contribute ONLY actual collected cash (`amountPaid`) toward current master bill reconciliation; recording subsequent tenant payments automatically recalculates the period's reconciliation status. |
+| **AC-101.5** | Revenue and P&L dashboards strictly exclude electricity pass-through collections, surplus amounts, and deficit losses from Net Room Rent Profit calculations. |
+
+---
+
 ## Gate
 
 **Awaiting user confirmation.**

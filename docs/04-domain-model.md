@@ -108,10 +108,10 @@ classDiagram
 All models consistently utilize time-ordered **UUIDv7** primary keys to ensure maximum database insert performance and B-Tree locality (`BR-10.4`, `NFR-11`).
 
 ### 2.1 User & Authentication Subsystem
-1. **`User`**: Authoritative system-wide credential and profile container (`SUPER_ADMIN`, `ADMIN`, `LANDLORD`, `TENANT`).
+1. **`User`**: Authoritative system-wide credential and profile container (`SUPER_ADMIN`, `ADMIN`, `LANDLORD`, `TENANT`), linked to `CountryCode` via `countryCodeId` with `ON DELETE RESTRICT`.
 2. **`PasswordResetRequest`**: Multi-use self-service password recovery tracker. Status defaults to `PENDING` (`BR-11.2`).
 3. **`UserSession`**: Persistent session store tracking tokens, IPs, and user agents to enable targeted revocations (`BR-16.5`).
-4. **`CountryCode`**: Database-driven registry of valid tenant/landlord phone formats (`BR-12`).
+4. **`CountryCode`**: Database-driven registry of valid tenant/landlord phone dial codes, flags, and regex patterns (`BR-12`). Seeded from reusable JSON (`data/country-codes.json`). Managed by Admins, strictly protected by `ON DELETE RESTRICT` and in-use immutability rules.
 
 ### 2.2 Asset & Infrastructure Hierarchy
 5. **`Building`**: High-level property asset containing floors, expenses, and connections (`BR-05`).
@@ -261,6 +261,29 @@ stateDiagram-v2
 
 ---
 
+### 4.3 Country Code Operational Lifecycle & In-Use Protection
+Governs creation, usage, and protection invariants for international dial code entities (`BR-12.3`, `FR-35`).
+
+```mermaid
+stateDiagram-v2
+    [*] --> ACTIVE : Seeded from data/country-codes.json OR Created by Admin
+    ACTIVE --> INACTIVE : Soft Disabled by Admin (0 Users Referencing)
+    INACTIVE --> ACTIVE : Re-enabled by Admin
+    INACTIVE --> [*] : Deleted by Admin (0 Users Referencing)
+    ACTIVE --> LOCKED_IN_USE : Referenced by >= 1 Active User
+    LOCKED_IN_USE --> LOCKED_IN_USE : Update/Disable/Delete Attempted (Rejected HTTP 409)
+```
+
+#### Transition Invariants & Guard Rules
+* **Initial Seeding:** Pre-populated during initial DB setup using `data/country-codes.json` (7 initial countries: India, US, Canada, UK, UAE, Nepal, Sri Lanka). India (`+91`) defaults to `isDefault = true`.
+* **In-Use Protection Invariant (`LOCKED_IN_USE`):** Whenever a `CountryCode` entity is linked to $\ge 1$ `User` records:
+  - ❌ **Delete Blocked:** Hard deletion (`DELETE`) is rejected at DB (`ON DELETE RESTRICT`) and API layers with `HTTP 409 Conflict` (`COUNTRY_CODE_IN_USE`).
+  - ❌ **Disable Blocked:** Setting `isActive = false` is rejected with `HTTP 409 Conflict` (`COUNTRY_CODE_IN_USE`).
+  - ❌ **Update Blocked:** Updating dial code, country code, country name, or phone regex pattern is rejected with `HTTP 409 Conflict` (`COUNTRY_CODE_IN_USE`).
+* **Unused Record Administration:** Only `CountryCode` records referencing zero (`0`) users can be modified, disabled, or deleted.
+
+---
+
 ## 5. Traceability Map (Domain Entity → Requirement ID)
 
 All domain entities and state machines map back to the requirements and core business rules:
@@ -268,6 +291,7 @@ All domain entities and state machines map back to the requirements and core bus
 | Domain Component | Associated Entity / State | Source Business Rule | Functional Requirement | Non-Functional Requirement |
 |---|---|---|---|---|
 | **Access Control** | `User`, `UserSession` | `BR-01`, `BR-16.5` | `FR-01` – `FR-08` | `NFR-01`, `NFR-04` |
+| **Country Codes** | `CountryCode` | `BR-12.1` – `BR-12.5` | `FR-01f`, `FR-35a` – `FR-35f` | `NFR-25` |
 | **Asset Hierarchy** | `Building`, `Floor`, `Room` | `BR-05`, `BR-06`, `BR-07` | `FR-22` – `FR-28` | `NFR-11` |
 | **Tenancy Lifecycle** | `Tenant`, `TenancyHistory` | `BR-08` | `FR-30` – `FR-35` | `NFR-07` |
 | **Rent Billing** | `RoomRentLedger` | `BR-03.4`, `BR-14.2` | `FR-36` – `FR-42` | `NFR-08`, `NFR-09` |

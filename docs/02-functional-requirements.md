@@ -46,7 +46,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 |----|---|---|
 | **FR-01** | A user can log in using either **Email + Password** OR **Phone Number + Country Code + Password** via a unified secure login page. | MASTER Rule 10.3 |
 | **FR-01e** | Phone login requires selecting a mandatory **Country Code** dropdown (default: `+91 🇮🇳 India`). The country code is mandatory and cannot be unselected. | MASTER Rule 10.3 |
-| **FR-01f** | All country codes, dial codes (`+91`), country names, flag emojis (`🇮🇳`), and phone validation regex patterns (`^[6-9]\d{9}$`) are stored in the database (`country_codes` table) and served via `GET /api/v1/meta/country-codes`. The frontend MUST NOT hardcode regex patterns. | MASTER Rule 10.3 |
+| **FR-01f** | All country codes, dial codes (`+91`), country names, flag emojis (`🇮🇳`), and phone validation regex patterns (`^[6-9]\d{9}$`) are stored in the database (`country_codes` table), seeded from reusable base JSON (`data/country-codes.json`), and served via `GET /api/v1/meta/country-codes`. Deleting, disabling, or modifying in-use country codes is strictly rejected (`ON DELETE RESTRICT` / HTTP 409). The frontend MUST NOT hardcode regex patterns. | MASTER Rule 10.3 |
 | **FR-01g** | Email input is validated against RFC 5322 regex. Backend (`ZodValidationPipe`) is the strict single source of truth for validation; Frontend executes matching Zod client validation for instant UX feedback. Phone numbers are normalized to E.164 format on the backend before DB query. | MASTER Rule 10.3 |
 | **FR-02** | On successful login, the system issues a short-lived **JWT access token** (15-minute expiry). | MASTER Rule 10.2 |
 | **FR-03** | A **refresh token** (7-day expiry) is issued, stored server-side in a `RefreshToken` database record, and delivered to the client in an `HttpOnly; Secure; SameSite=Strict` cookie. | MASTER Rule 10.2 |
@@ -112,6 +112,17 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | **FR-P13** | All passwords MUST be stored as **Argon2id hashes** (memory: 64MB, 3 iterations, 4 parallelism threads). Plaintext passwords are never stored, logged, or transmitted. | BR-10.2, BR-11.4 |
 | **FR-P14** | New passwords must meet minimum complexity: at least 8 characters, at least 1 uppercase, 1 lowercase, 1 digit, and 1 special character. | Auth Update |
 | **FR-P15** | A user cannot reuse their last 3 passwords when setting a new one. | Auth Update |
+
+#### 5. Country Code Management & Seeding
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-35a** | The system MUST seed the `country_codes` database table during initial deployment using a reusable base JSON file (`data/country-codes.json`) pre-populated with authoritative data for 7 initial countries: India (`+91`), United States (`+1`), Canada (`+1`), United Kingdom (`+44`), United Arab Emirates (`+971`), Nepal (`+977`), and Sri Lanka (`+94`). | BR-12.2 |
+| **FR-35b** | Super Admin (`SUPER_ADMIN`) and Admin (`ADMIN`) roles can access `/api/v1/admin/country-codes` to view all country codes (active and inactive) along with total user usage counts. | BR-12.4 |
+| **FR-35c** | Super Admin and Admin roles can create new country codes (`POST /api/v1/admin/country-codes`) with unique `countryCode`, `dialCode`, `countryName`, `flagEmoji`, `phoneRegexPattern`, and min/max length parameters. | BR-12.4 |
+| **FR-35d** | Super Admin and Admin roles can update unused country codes (`PUT /api/v1/admin/country-codes/:id`). If a country code is currently referenced by any user, updates (changing dial code, country code, country name, or phone regex) MUST be rejected with `HTTP 409 Conflict` (`COUNTRY_CODE_IN_USE`). | BR-12.3, BR-12.4 |
+| **FR-35e** | Super Admin and Admin roles can disable or enable unused country codes (`isActive = false`). Disabling a country code referenced by active users MUST be rejected with `HTTP 409 Conflict` (`COUNTRY_CODE_IN_USE`). | BR-12.3 |
+| **FR-35f** | Deleting a country code (`DELETE /api/v1/admin/country-codes/:id`) referenced by any user MUST be rejected at database (`ON DELETE RESTRICT`) and API layers with `HTTP 409 Conflict` (`COUNTRY_CODE_IN_USE`). Only unused country codes (0 referenced users) can be deleted. | BR-12.3 |
 
 ---
 

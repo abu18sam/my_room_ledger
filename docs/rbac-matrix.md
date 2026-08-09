@@ -34,7 +34,7 @@
 | **Landlord Accounts** | C / R / U / D | C / R / U / D | — | — | Admins & Super Admins onboard & manage Landlords. |
 | **Tenant Accounts** | C / R / U / D | C / R / U / D | C / R / U | — | Landlords onboard tenants to own rooms; Admins manage globally. |
 | **User Sessions (`UserSession`)** | R / D (All) | R / D (Landlord/Tenant) | R / D (Self) | R / D (Self) | Force-logout subject to role hierarchy rules (BR-01.5). |
-| **Country Code Metadata** | C / R / U / D | R | R | R | Read-only for public/auth; managed by Super Admin. |
+| **Country Code Metadata** | C / R / U / D | C / R / U / D | R | R | Read-only for public/auth; managed by Admin & Super Admin via `/api/v1/admin/country-codes`. Update/Disable/Delete blocked if referenced by ≥ 1 user (`COUNTRY_CODE_IN_USE`). |
 | **Power Supply Company** | C / R / U / D | C / R / U / D | R | — | Deletion blocked if company linked to ≥1 building (`COMPANY_IN_USE`). |
 | **Building Infrastructure** | C / R / U / D | C / R / U / D | C / R / U / D (Own) | — | Landlord strictly limited to own registered buildings. |
 | **Power Supplier Switch** | C / U | C / U | C / U (Own) | — | Requires zero open master bills (`PENDING_SUPPLIER_BILLS_EXIST`). |

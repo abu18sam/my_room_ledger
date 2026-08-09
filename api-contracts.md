@@ -109,6 +109,136 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
   ]
   ```
 
+### `GET /api/v1/admin/country-codes`
+- **Access**: `SUPER_ADMIN` | `ADMIN`
+- **Purpose**: Retrieve full registry of country codes (active and inactive) including usage statistics (referenced user counts).
+- **Response (200 OK)**:
+  ```json
+  [
+    {
+      "id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      "countryCode": "IN",
+      "dialCode": "+91",
+      "countryName": "India",
+      "flagEmoji": "🇮🇳",
+      "phoneRegexPattern": "^[6-9]\\d{9}$",
+      "minLength": 10,
+      "maxLength": 10,
+      "isDefault": true,
+      "isActive": true,
+      "referencedUsersCount": 142,
+      "createdAt": "2026-08-09T00:00:00Z"
+    }
+  ]
+  ```
+
+### `POST /api/v1/admin/country-codes`
+- **Access**: `SUPER_ADMIN` | `ADMIN`
+- **Request Body**:
+  ```json
+  {
+    "countryCode": "LK",
+    "dialCode": "+94",
+    "countryName": "Sri Lanka",
+    "flagEmoji": "🇱🇰",
+    "phoneRegexPattern": "^7\\d{8}$",
+    "minLength": 9,
+    "maxLength": 9,
+    "isDefault": false,
+    "isActive": true
+  }
+  ```
+- **Response (201 Created)**:
+  ```json
+  {
+    "id": "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+    "countryCode": "LK",
+    "dialCode": "+94",
+    "countryName": "Sri Lanka",
+    "flagEmoji": "🇱🇰",
+    "phoneRegexPattern": "^7\\d{8}$",
+    "minLength": 9,
+    "maxLength": 9,
+    "isDefault": false,
+    "isActive": true,
+    "createdAt": "2026-08-09T20:50:00Z"
+  }
+  ```
+- **Error Response (400 Bad Request / 409 Conflict)**:
+  ```json
+  {
+    "statusCode": 409,
+    "error": "DUPLICATE_COUNTRY_CODE",
+    "message": "Country code 'LK' or dial code '+94' already exists in the system registry.",
+    "timestamp": "2026-08-09T20:50:00Z",
+    "path": "/api/v1/admin/country-codes"
+  }
+  ```
+
+### `PUT /api/v1/admin/country-codes/{id}`
+- **Access**: `SUPER_ADMIN` | `ADMIN`
+- **Request Body**:
+  ```json
+  {
+    "phoneRegexPattern": "^[6-9]\\d{9}$",
+    "minLength": 10,
+    "maxLength": 10,
+    "isActive": true
+  }
+  ```
+- **Response (200 OK - Unused Country Code)**:
+  ```json
+  {
+    "id": "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+    "countryCode": "LK",
+    "dialCode": "+94",
+    "countryName": "Sri Lanka",
+    "flagEmoji": "🇱🇰",
+    "phoneRegexPattern": "^7\\d{8}$",
+    "minLength": 9,
+    "maxLength": 9,
+    "isActive": true,
+    "updatedAt": "2026-08-09T20:52:00Z"
+  }
+  ```
+- **Error Response (409 Conflict - In-Use Country Code)**:
+  ```json
+  {
+    "statusCode": 409,
+    "error": "COUNTRY_CODE_IN_USE",
+    "message": "Cannot update or disable country code '+91 (India)' because 142 active users are currently linked to it.",
+    "metadata": {
+      "countryCodeId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      "referencedUsersCount": 142
+    },
+    "timestamp": "2026-08-09T20:52:00Z",
+    "path": "/api/v1/admin/country-codes/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+  }
+  ```
+
+### `DELETE /api/v1/admin/country-codes/{id}`
+- **Access**: `SUPER_ADMIN` | `ADMIN`
+- **Response (200 OK - When 0 referenced users)**:
+  ```json
+  {
+    "message": "Country code '+94 (Sri Lanka)' deleted successfully."
+  }
+  ```
+- **Error Response (409 Conflict - When linked to ≥ 1 user)**:
+  ```json
+  {
+    "statusCode": 409,
+    "error": "COUNTRY_CODE_IN_USE",
+    "message": "Cannot delete country code '+91 (India)' because 142 users are currently linked to it. Foreign key referential integrity (ON DELETE RESTRICT) forbids deletion.",
+    "metadata": {
+      "countryCodeId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      "referencedUsersCount": 142
+    },
+    "timestamp": "2026-08-09T20:52:00Z",
+    "path": "/api/v1/admin/country-codes/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+  }
+  ```
+
 ### `GET /api/v1/meta/power-companies`
 - **Access**: Public / Authenticated (Populates FE dropdowns)
 - **Response (200 OK)**:

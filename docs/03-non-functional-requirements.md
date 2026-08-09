@@ -73,7 +73,15 @@
 
 ---
 
-## 7. Traceability Map (NFR → Architectural Layer)
+## 7. Data Integrity & Seeding Performance
+
+| NFR ID | Requirement | Metric / Constraint Target | Verification Method | Source Rule |
+|---|---|---|---|---|
+| **NFR-25** | **Country Code Integrity & Seeding Latency** | Database-level foreign key constraint (`ON DELETE RESTRICT`) guarantees 0 orphan phone records. Reusable seed execution from `data/country-codes.json` completes in $< 500\text{ ms}$ during DB deployment. Deleting, disabling, or updating in-use country codes guarantees strict HTTP 409 rejection. | Prisma Migration & Integration Test | BR-12.2, BR-12.3, FR-35 |
+
+---
+
+## 8. Traceability Map (NFR → Architectural Layer)
 
 | NFR Range | Category | Target Architectural Layer |
 |---|---|---|
@@ -83,6 +91,7 @@
 | **NFR-14 – NFR-16** | Infrastructure & Scale | Docker Multi-Stage Build, Render/VPS Deployment, Prisma Pool |
 | **NFR-17 – NFR-18** | Error Handling & Rates | Global NestJS Exception Filter, ThrottlerGuard |
 | **NFR-19 – NFR-20** | Quality & Governance | Jest Unit/Integration Tests, Git Workflow |
+| **NFR-25** | Data Integrity & Seeding | PostgreSQL FK Constraints (`ON DELETE RESTRICT`), Prisma Seed |
 
 ---
 

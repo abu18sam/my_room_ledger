@@ -423,6 +423,21 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 
 ---
 
+## AC-35 — Country Code Management & Integrity
+
+**Requirements:** FR-01f, FR-35a, FR-35b, FR-35c, FR-35d, FR-35e, FR-35f, BR-12.1 – BR-12.5
+
+| ID | Criterion |
+|----|---|
+| **AC-35.1** | Initial database seeding populates `country_codes` table from `data/country-codes.json` containing 7 initial countries: India (`+91`), United States (`+1`), Canada (`+1`), United Kingdom (`+44`), United Arab Emirates (`+971`), Nepal (`+977`), and Sri Lanka (`+94`). India is flagged `isDefault: true`. |
+| **AC-35.2** | Super Admin and Admin roles can retrieve all country codes (active and inactive) via `GET /api/v1/admin/country-codes` with `referencedUsersCount` metadata. |
+| **AC-35.3** | Creating a new country code (`POST /api/v1/admin/country-codes`) with an existing `countryCode` or `dialCode` returns `HTTP 409 DUPLICATE_COUNTRY_CODE`. |
+| **AC-35.4** | Attempting to update (`PUT /api/v1/admin/country-codes/{id}`) dial code, country code, country name, or phone regex pattern for a country code referenced by $\ge 1$ users returns `HTTP 409 COUNTRY_CODE_IN_USE`. |
+| **AC-35.5** | Attempting to soft-disable (`isActive = false`) a country code referenced by $\ge 1$ users returns `HTTP 409 COUNTRY_CODE_IN_USE`. |
+| **AC-35.6** | Attempting to hard-delete (`DELETE /api/v1/admin/country-codes/{id}`) a country code referenced by $\ge 1$ users returns `HTTP 409 COUNTRY_CODE_IN_USE` and is blocked at database layer (`ON DELETE RESTRICT`). Unused country codes (0 referenced users) are deleted successfully (HTTP 200). |
+
+---
+
 ## Gate
 
 **Stage 02 Confirmed & Locked ✅** (Approved by User)

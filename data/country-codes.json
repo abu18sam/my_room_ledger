@@ -1,0 +1,79 @@
+[
+  {
+    "countryCode": "IN",
+    "dialCode": "+91",
+    "countryName": "India",
+    "flagEmoji": "🇮🇳",
+    "phoneRegexPattern": "^[6-9]\\d{9}$",
+    "minLength": 10,
+    "maxLength": 10,
+    "isDefault": true,
+    "isActive": true
+  },
+  {
+    "countryCode": "US",
+    "dialCode": "+1",
+    "countryName": "United States",
+    "flagEmoji": "🇺🇸",
+    "phoneRegexPattern": "^[2-9]\\d{9}$",
+    "minLength": 10,
+    "maxLength": 10,
+    "isDefault": false,
+    "isActive": true
+  },
+  {
+    "countryCode": "CA",
+    "dialCode": "+1",
+    "countryName": "Canada",
+    "flagEmoji": "🇨🇦",
+    "phoneRegexPattern": "^[2-9]\\d{9}$",
+    "minLength": 10,
+    "maxLength": 10,
+    "isDefault": false,
+    "isActive": true
+  },
+  {
+    "countryCode": "GB",
+    "dialCode": "+44",
+    "countryName": "United Kingdom",
+    "flagEmoji": "🇬🇧",
+    "phoneRegexPattern": "^7\\d{9}$",
+    "minLength": 10,
+    "maxLength": 10,
+    "isDefault": false,
+    "isActive": true
+  },
+  {
+    "countryCode": "AE",
+    "dialCode": "+971",
+    "countryName": "United Arab Emirates",
+    "flagEmoji": "🇦🇪",
+    "phoneRegexPattern": "^5\\d{8}$",
+    "minLength": 9,
+    "maxLength": 9,
+    "isDefault": false,
+    "isActive": true
+  },
+  {
+    "countryCode": "NP",
+    "dialCode": "+977",
+    "countryName": "Nepal",
+    "flagEmoji": "🇳🇵",
+    "phoneRegexPattern": "^9[78]\\d{8}$",
+    "minLength": 10,
+    "maxLength": 10,
+    "isDefault": false,
+    "isActive": true
+  },
+  {
+    "countryCode": "LK",
+    "dialCode": "+94",
+    "countryName": "Sri Lanka",
+    "flagEmoji": "🇱🇰",
+    "phoneRegexPattern": "^7\\d{8}$",
+    "minLength": 9,
+    "maxLength": 9,
+    "isDefault": false,
+    "isActive": true
+  }
+]

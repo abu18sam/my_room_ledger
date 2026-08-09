@@ -188,7 +188,7 @@ model PowerSupplyCompany {
 model CountryCode {
   id                 String   @id @default(uuid()) @db.Uuid
   countryCode        String   @unique @map("country_code") @db.VarChar(5) // ISO alpha-2 e.g. "IN"
-  dialCode           String   @map("dial_code") @db.VarChar(10)          // e.g. "+91"
+  dialCode           String   @unique @map("dial_code") @db.VarChar(10)   // e.g. "+91"
   countryName        String   @map("country_name") @db.VarChar(100)      // e.g. "India"
   flagEmoji          String   @map("flag_emoji") @db.VarChar(10)         // e.g. "🇮🇳"
   phoneRegexPattern  String   @map("phone_regex_pattern") @db.VarChar(255) // e.g. "^[6-9]\\d{9}$"
@@ -209,6 +209,7 @@ model User {
   id                 String      @id @default(uuid()) @db.Uuid // UUIDv7 time-ordered PK
   fullName           String      @map("full_name") @db.VarChar(120)
   email              String?     @unique @db.VarChar(150)
+  countryCodeId      String      @map("country_code_id") @db.Uuid
   phoneNumber        String      @unique @map("phone_number") @db.VarChar(20)
   passwordHash       String      @map("password_hash") @db.VarChar(255) // Argon2id hash ($argon2id$)
   role               UserRole    @default(TENANT)
@@ -218,6 +219,7 @@ model User {
   updatedAt          DateTime    @updatedAt @map("updated_at")
 
   // Relationships
+  countryCode        CountryCode @relation("UserCountryCode", fields: [countryCodeId], references: [id], onDelete: Restrict)
   buildings          Building[]  @relation("LandlordBuildings")
   tenantProfile      Tenant?
   documentsUploaded  DocumentMetadata[] @relation("UploadedDocuments")
@@ -226,6 +228,7 @@ model User {
   sessions           UserSession[]
   auditLogsPerformed AuditLog[]  @relation("AuditLogsPerformed")
 
+  @@index([countryCodeId])
   @@map("users")
 }
 

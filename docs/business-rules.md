@@ -212,17 +212,31 @@ This document serves as the **single authoritative source of truth for all domai
 
 ---
 
-### BR-12: Dual Login & Dynamic Country Code Validation Architecture
+### BR-12: Dual Login & Dynamic Country Code Management Architecture
 
 #### BR-12.1 — Supported Credentials
 - **Email + Password**: Email format validated against RFC 5322 regex standard.
 - **Phone Number + Password**: Requires mandatory `Country Code` dropdown selection (default `+91 🇮🇳 India`) + local phone number input + password.
 
-#### BR-12.2 — Validation & Metadata System
-- **Backend Source of Truth**: NestJS + Zod (`ZodValidationPipe`) is the ultimate security boundary. Phone numbers normalized to E.164 (`+919876543210`).
-- **Frontend UX Validation**: Frontend runs matching Zod client validation for instant visual feedback.
-- **DB-Managed Country Codes**: All country codes, dial codes (`+91`), flags (`🇮🇳`), and regex patterns (`^[6-9]\d{9}$`) stored in `country_codes` database table and served via `GET /api/v1/meta/country-codes`.
-- **Zero Frontend Hardcoding**: Frontend MUST NOT hardcode regex patterns or country lists.
+#### BR-12.2 — Centralized Database Registry & Reusable Base JSON Seeding
+- **Database Table**: Dedicated, independent `country_codes` database table storing ISO alpha-2 codes (`IN`, `US`, `CA`, `GB`, `AE`, `NP`, `LK`), dial codes (`+91`), flag emojis (`🇮🇳`), phone validation regex patterns (`^[6-9]\d{9}$`), min/max lengths, default flag (`isDefault`), and active status (`isActive`).
+- **Reusable Base JSON Seed**: Database seeded during initial setup via a standalone, reusable JSON artifact (`data/country-codes.json`) pre-populated with authoritative data for 7 initial countries: India (`+91`), United States (`+1`), Canada (`+1`), United Kingdom (`+44`), United Arab Emirates (`+971`), Nepal (`+977`), and Sri Lanka (`+94`). India (`+91`) is flagged `isDefault: true`.
+
+#### BR-12.3 — Strict Data Integrity & In-Use Immutability Governance
+- **Database Referential Integrity (`ON DELETE RESTRICT`)**: Foreign key `countryCodeId` on `users` table referencing `country_codes(id)` is configured with `onDelete: Restrict` at backend and PostgreSQL database levels.
+- **In-Use Protection Invariant**: If a `CountryCode` record is referenced by any `User` (or other system entity):
+  - ❌ **No Hard Deletion**: `DELETE` operations are strictly blocked by DB constraints and API validation (HTTP `409 Conflict`, error code `COUNTRY_CODE_IN_USE`).
+  - ❌ **No Disabling**: Setting `isActive = false` on a referenced country code is strictly rejected (HTTP `409 Conflict`, error code `COUNTRY_CODE_IN_USE`) to prevent breaking existing user logins or data integrity.
+  - ❌ **No Modification**: Updating dial code, country code, country name, or phone regex pattern of a referenced country code is strictly rejected (HTTP `409 Conflict`, error code `COUNTRY_CODE_IN_USE`) to prevent corrupting historical user data validation.
+- **Unused Records**: Only country codes referencing zero (`0`) users can be updated, disabled, or deleted.
+
+#### BR-12.4 — Admin Configuration Controls & CRUD Endpoints
+- **Role Permissions**: `SUPER_ADMIN` and `ADMIN` roles have configuration controls via `/api/v1/admin/country-codes` to create new country codes, view all entries (active/inactive) with user usage counts, and update/delete unused entries.
+- **Public Metadata Access**: `GET /api/v1/meta/country-codes` serves active country codes (`isActive = true`) for login/registration dropdowns.
+
+#### BR-12.5 — Validation & Zero Frontend Hardcoding
+- **Dynamic Server Validation**: Backend NestJS + Zod (`ZodValidationPipe`) dynamically validates local phone numbers against the `phoneRegexPattern` and `minLength`/`maxLength` of the selected `CountryCode` entity.
+- **Zero Frontend Hardcoding**: Frontend MUST NOT hardcode country lists or regex validation rules.
 
 ---
 

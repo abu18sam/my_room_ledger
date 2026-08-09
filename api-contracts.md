@@ -13,7 +13,7 @@
 |---|---|
 | `req.body` | Validated by endpoint-specific Zod schema |
 | `req.query` | Validated by query Zod schema (unknown keys stripped) |
-| `req.params` | Route params coerced & validated as RFC 4122 UUID strings (`z.string().uuid()`) |
+| `req.params` | Route params coerced & validated as 36-character hyphenated **UUIDv7** strings (`z.string().uuid()`) |
 | File uploads | MIME type + size validated before any processing |
 
 ### 0.2 — Universal Error Response Envelopes

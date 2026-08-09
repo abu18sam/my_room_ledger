@@ -178,10 +178,11 @@ This document serves as the **single authoritative source of truth for all domai
 - **Zero Public File Access**: File access strictly via short-lived backend-generated expiring signed URLs (15-min expiry as defined in [`docs/ttl-registry.md`](ttl-registry.md)).
 - **Rate Limiting & Security Headers**: Helmet.js enabled globally. `@nestjs/throttler` (100 req/min globally; 5 req/min auth). CORS locked down to `NEXT_PUBLIC_FRONTEND_URL`.
 
-#### BR-10.4 — Universal Non-Sequential UUID Primary Key Strategy
-- All primary keys across all database tables MUST be generated using non-sequential, 128-bit UUIDs (`gen_random_uuid()` in PostgreSQL 13+ / `@default(uuid())` in Prisma ORM).
-- Sequential auto-increment integer primary keys (`BIGINT AUTOINCREMENT`) are **strictly prohibited** across all models to prevent resource enumeration attacks, IDOR vulnerabilities, and metrics disclosure.
-- All foreign key relationships, route parameters (`z.string().uuid()`), API payloads, and NestJS pipes (`ParseUUIDPipe`) strictly enforce 36-character hyphenated UUID strings (`8-4-4-4-12` format).
+#### BR-10.4 — Universal UUIDv7 Primary Key Strategy
+- All primary keys across all database tables MUST be generated using **UUIDv7** (time-ordered 128-bit globally unique identifiers via `uuidv7()` in PostgreSQL / Prisma ORM).
+- **Time-Ordered Index Locality**: UUIDv7 embeds a 48-bit millisecond timestamp in high-order bits, providing sequential monotonicity. This eliminates B-Tree index page splits, reduces fragmentation, and optimizes high-throughput PostgreSQL INSERT performance while preserving global uniqueness.
+- Sequential auto-increment integer primary keys (`BIGINT AUTOINCREMENT`) are **strictly prohibited** across all models.
+- All foreign key relationships, route parameters (`z.string().uuid()`), API payloads, and NestJS pipes (`ParseUUIDPipe`) strictly enforce 36-character hyphenated UUIDv7 strings (`8-4-4-4-12` format).
 
 ---
 
@@ -207,7 +208,7 @@ This document serves as the **single authoritative source of truth for all domai
 #### BR-11.4 — Security & Complexity Constraints
 - Password Complexity: Minimum 8 characters, 1 uppercase, 1 lowercase, 1 digit, 1 special character.
 - Password Reuse Prevention: Users cannot reuse any of their last 3 passwords.
-- Passwords hashed with `bcrypt` (minimum 12 salt rounds). Plaintext passwords never stored or logged.
+- **Mandatory Argon2id Hashing**: Passwords MUST be hashed exclusively using **Argon2id** (memory cost: 64 MB / $65,536\text{ KiB}$, time cost: 3 iterations, parallelism: 4 threads, unique per-user salt). Plaintext passwords are NEVER stored, logged, or transmitted. Encoded hashes start with `$argon2id$`. Automatic transparent rehashing supported on login upon parameter upgrades.
 
 ---
 

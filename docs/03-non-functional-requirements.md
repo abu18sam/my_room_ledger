@@ -1,6 +1,6 @@
 # Stage 03 — Non-Functional Requirements (NFRs)
 
-**Status:** In Progress (Drafted & Awaiting User Review)  
+**Status:** Confirmed & Locked ✅ (Approved by User on 2026-08-09)  
 **Upstream:** [02-functional-requirements.md](02-functional-requirements.md) (Confirmed & Locked ✅), MASTER.md business rules  
 **Downstream:** Stage 04 (Domain Model & State Machines)  
 **Workflow tracker:** [00-engineering-workflow.md](00-engineering-workflow.md)
@@ -16,7 +16,7 @@
 | NFR ID | Requirement | Metric / Constraint Target | Verification Method | Source Rule |
 |---|---|---|---|---|
 | **NFR-01** | **JWT & Token Security** | Signed JWTs (RS256 or HS256 with $\ge 256$-bit key). Access Token TTL = **10 minutes**; Refresh Token TTL = **7 days**. All token lifecycles governed by [`docs/ttl-registry.md`](ttl-registry.md). Protected routes require `@UseGuards(JwtAuthGuard, RolesGuard)`. | Security Audit & Unit Test assertions | BR-10.1, BR-01.1, docs/ttl-registry.md |
-| **NFR-02** | **Password Hashing & Storage** | Passwords hashed using **Argon2id** (memory: 64MB, iterations: 3, parallelism: 4) or **bcrypt** (cost factor 12) with unique per-user salt. Zero plaintext passwords stored or logged. | DB Column Inspection & Auth Service Unit Tests | BR-10.2, BR-11 |
+| **NFR-02** | **Password Hashing & Storage** | Passwords MUST be hashed exclusively using **Argon2id** (memory: 64MB / $65,536\text{ KiB}$, time cost: 3 iterations, parallelism: 4 threads) with unique per-user salt. Zero plaintext or bcrypt passwords stored or logged. | DB Column Inspection & Auth Service Unit Tests | BR-10.2, BR-11.4 |
 | **NFR-03** | **Encrypted Cloud Object Storage** | Files uploaded to Cloudflare R2 MUST be encrypted at-rest using **AES-256 GCM**. File access served strictly via backend-generated signed URLs with **15-minute expiration** as defined in [`docs/ttl-registry.md`](ttl-registry.md). | API Integration Test & Storage Header Audit | BR-10.3, BR-08, docs/ttl-registry.md |
 | **NFR-04** | **Session Revocation SLA** | Administrative force logout (`FORCE_LOGOUT_USER` / `FORCE_LOGOUT_ROLE`) MUST purge user active session records from PostgreSQL within **$\le 500\text{ ms}$**, immediately blocking token refresh attempts. | Performance & Integration Test | BR-01.5, BR-16.2 |
 | **NFR-05** | **Input Sanitization & Injection Defense** | 100% of API endpoints validate request payloads via `ZodValidationPipe`. Database access via Prisma ORM parameterized queries to eliminate SQL injection, XSS, and parameter pollution. | Static Code Analysis & DAST Vulnerability Scan | BR-10.4, BR-15.3 |
@@ -39,7 +39,7 @@
 | NFR ID | Requirement | Metric / Constraint Target | Verification Method | Source Rule |
 |---|---|---|---|---|
 | **NFR-10** | **API Response Time Targets** | Standard CRUD API endpoints $p95 \le \mathbf{200\text{ ms}}$; P&L financial aggregation and electricity reconciliation endpoints $p95 \le \mathbf{400\text{ ms}}$ under nominal load. | k6 Load Test Suite | BR-04.1 |
-| **NFR-11** | **Database Indexing & Query Efficiency** | All foreign keys (`buildingId`, `roomId`, `tenantId`, `landlordId`) and search filters (`status`, `paymentDate`, `billCycleStart`) MUST be indexed. Zero unindexed sequential table scans allowed. | PostgreSQL `EXPLAIN ANALYZE` Inspection | BR-10.5 |
+| **NFR-11** | **Database Indexing & UUIDv7 Efficiency** | All primary keys across all tables MUST use **UUIDv7** (time-ordered 128-bit identifiers leveraging sequential B-Tree index locality to prevent page splits). All foreign keys and search filters indexed. Zero unindexed sequential scans allowed. | PostgreSQL `EXPLAIN ANALYZE` Inspection | BR-10.4, BR-10.5 |
 | **NFR-12** | **PWA Frontend Performance** | Next.js PWA targets: First Contentful Paint (FCP) $\le \mathbf{1.2\text{ s}}$, Largest Contentful Paint (LCP) $\le \mathbf{2.0\text{ s}}$, Time to Interactive (TTI) $\le \mathbf{2.5\text{ s}}$ on standard 4G networks. | Lighthouse PWA Audit | BR-10.6 |
 | **NFR-13** | **Payload Size & Compression** | Gzip/Brotli HTTP compression enabled. File upload size capped at **10MB** per document with client-side WebP compression for UI avatars. | Network Profiling | BR-10.3 |
 
@@ -88,4 +88,6 @@
 
 ## Gate
 
-**Draft Completed — Awaiting User Review & Confirmation.**
+**Stage 03 Confirmed & Locked ✅** (Approved by User on 2026-08-09)
+
+**Next:** Stage 04 — Domain Model & State Machines → [`docs/04-domain-model.md`](04-domain-model.md)

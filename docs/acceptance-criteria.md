@@ -106,7 +106,7 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 | ID | Criterion |
 |----|---|
 | **AC-P13.1** | No plaintext password appears in any database column, API response, or application log at any point. |
-| **AC-P13.2** | The password column in the database stores a bcrypt hash (12 salt rounds). Verified by checking the hash prefix (`$2b$12$`). |
+| **AC-P13.2** | The password column in the database stores an Argon2id hash (64MB RAM, 3 iterations, 4 parallelism). Verified by checking the hash prefix (`$argon2id$`). |
 | **AC-P13.3** | A password that fails complexity rules (< 8 chars, missing uppercase, lowercase, digit, or special character) returns HTTP 400 `VALIDATION_ERROR` with specific field feedback. |
 | **AC-P13.4** | A user attempting to set a new password that matches any of their last 3 password hashes receives HTTP 400 `PASSWORD_REUSE_NOT_ALLOWED`. |
 
@@ -348,7 +348,7 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 | **AC-82.9** | Requesting a non-existent resource ID returns `HTTP 404 NOT_FOUND` with `metadata.resourceId`. |
 | **AC-82.10** | Registering a user with an existing email or phone returns `HTTP 409 DUPLICATE_ENTRY` with `metadata.field`. |
 | **AC-82.11** | Unhandled 500 server errors return `HTTP 500 INTERNAL_SERVER_ERROR` with generic message "An unexpected internal server error occurred. Please contact support."; no stack trace or SQL text is present. |
-| **AC-82.12** | Every entity primary key and foreign key generated and returned by the API is a valid 36-character hyphenated RFC 4122 UUID string (`8-4-4-4-12` hex). Numeric integer IDs passed in request payloads return `HTTP 400 VALIDATION_ERROR`. |
+| **AC-82.12** | Every entity primary key and foreign key generated and returned by the API is a valid 36-character hyphenated **UUIDv7** time-ordered string (`8-4-4-4-12` hex). Numeric integer IDs passed in request payloads return `HTTP 400 VALIDATION_ERROR`. |
 
 ---
 

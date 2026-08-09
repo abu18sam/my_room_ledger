@@ -147,7 +147,7 @@ my_room_ledger/
 │   │   │   ├── zod-validation.pipe.ts
 │   │   │   └── http-exception.filter.ts
 │   │   ├── modules/                # Feature Modules
-│   │   │   ├── auth/               # Login, Refresh, Password Hashing (bcrypt)
+│   │   │   ├── auth/               # Login, Refresh, Password Hashing (Argon2id), UUIDv7 Primary Keys
 │   │   │   ├── admin/              # Super Admin & Admin management
 │   │   │   ├── building/           # Buildings, Floors, Rooms, Shared Amenities
 │   │   │   ├── tenant/             # Tenant onboarding, KYC metadata, Tenancy History

@@ -109,7 +109,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 | ID | Requirement | Source |
 |----|---|---|
-| **FR-P13** | All passwords are stored as **bcrypt hashes** (minimum 12 salt rounds). Plaintext passwords are never stored, logged, or transmitted. | MASTER Rule 10.2 |
+| **FR-P13** | All passwords MUST be stored as **Argon2id hashes** (memory: 64MB, 3 iterations, 4 parallelism threads). Plaintext passwords are never stored, logged, or transmitted. | BR-10.2, BR-11.4 |
 | **FR-P14** | New passwords must meet minimum complexity: at least 8 characters, at least 1 uppercase, 1 lowercase, 1 digit, and 1 special character. | Auth Update |
 | **FR-P15** | A user cannot reuse their last 3 passwords when setting a new one. | Auth Update |
 
@@ -282,7 +282,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 | ID | Requirement | Source |
 |----|---|---|
-| **FR-78** | **Every** API endpoint — body, query parameters, and route parameters — is validated through a **Zod schema** via `ZodValidationPipe` before reaching any Controller or Service. Route parameter entity IDs are coerced and validated as RFC 4122 UUID strings (`z.string().uuid()`). | MASTER Rule 10.1, BR-10.4 |
+| **FR-78** | **Every** API endpoint — body, query parameters, and route parameters — is validated through a **Zod schema** via `ZodValidationPipe` before reaching any Controller or Service. Route parameter entity IDs are coerced and validated as RFC 4122 / draft UUIDv7 strings (`z.string().uuid()`). | MASTER Rule 10.1, BR-10.4 |
 | **FR-79** | Validation failures return `HTTP 400 VALIDATION_ERROR` with structured field-level error details (`details: [{ field, message }]`). No partial processing of invalid input occurs. | MASTER Rule 10.1, BR-15.2 |
 | **FR-80** | All string inputs are sanitized: `.trim()`, minimum length enforced, and pattern-matched where applicable (e.g., phone numbers, email format, UUID format). | MASTER Rule 10.1 |
 | **FR-81** | All date inputs are validated as ISO 8601. Indian Financial Year boundary rules (Apr 1 – Mar 31) are enforced for all date range queries. | MASTER Rule 4, 10.1 |
@@ -292,7 +292,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | **FR-85** | Requesting a resource ID that does not exist in the database MUST return `HTTP 404 NOT_FOUND`. Requesting a resource owned by another user MUST return `HTTP 403 FORBIDDEN`. | BR-15.5 |
 | **FR-86** | Creating a user (Admin, Landlord, Tenant) with an email or phone number that is already registered MUST return `HTTP 409 DUPLICATE_ENTRY`. | BR-15.5 |
 | **FR-87** | Unhandled server exceptions MUST return `HTTP 500 INTERNAL_SERVER_ERROR` with a generic user message. Stack traces, database constraint names, and internal code paths must never be exposed. | BR-15.3 |
-| **FR-88** | All database entity primary keys and foreign keys MUST use non-sequential RFC 4122 UUID strings (`gen_random_uuid()` / `@default(uuid())`). Numeric auto-increment integer IDs (`BIGINT AUTOINCREMENT`) are strictly prohibited system-wide. | BR-10.4 |
+| **FR-88** | All database entity primary keys and foreign keys MUST use **UUIDv7** time-ordered 128-bit identifiers (`uuidv7()` in PostgreSQL / Prisma ORM). Numeric auto-increment integer IDs (`BIGINT AUTOINCREMENT`) are strictly prohibited system-wide. | BR-10.4 |
 
 ---
 

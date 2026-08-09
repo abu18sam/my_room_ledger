@@ -39,8 +39,8 @@ Requirement (FR-xx/NFR-xx) → Acceptance criteria (AC-xx.y) → Design decision
 | [01-requirement-analysis.md](01-requirement-analysis.md) | Stage 01 | Confirmed |
 | [02-functional-requirements.md](02-functional-requirements.md) | Stage 02 | Confirmed |
 | [acceptance-criteria.md](acceptance-criteria.md) | Stage 02 (companion) | Confirmed |
-| [03-non-functional-requirements.md](03-non-functional-requirements.md) | Stage 03 | **In Progress** |
-| [04-domain-model.md](04-domain-model.md) | Stage 04 | Pending |
+| [03-non-functional-requirements.md](03-non-functional-requirements.md) | Stage 03 | Confirmed |
+| [04-domain-model.md](04-domain-model.md) | Stage 04 | **In Progress** |
 | [05-database-design.md](05-database-design.md) | Stage 05 | Pending |
 | [06-api-design.md](06-api-design.md) | Stage 06 | Pending |
 | [07-frontend-architecture.md](07-frontend-architecture.md) | Stage 07 | Pending |
@@ -56,7 +56,7 @@ Requirement (FR-xx/NFR-xx) → Acceptance criteria (AC-xx.y) → Design decision
 | [17-documentation.md](17-documentation.md) | Stage 17 | Pending |
 | [18-repo-restructure.md](18-repo-restructure.md) | Stage 18 | Pending |
 
-**Current Position:** **Stage 03 In Progress** — Non-Functional Requirements (NFRs) drafted in [`docs/03-non-functional-requirements.md`](03-non-functional-requirements.md).
+**Current Position:** **Stage 04 In Progress** — Domain Model & State Machines.
 
 ---
 

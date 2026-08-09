@@ -156,8 +156,14 @@ enum RequestStatus {
 }
 
 // MODEL DEFINITIONS
+// -----------------------------------------------------------------------------
+// PRIMARY KEY STRATEGY: All models use UUIDv7 (@default(dbgenerated("uuidv7()")) / @default(uuid()))
+// Time-ordered 128-bit identifiers optimize B-Tree index locality & INSERT performance.
+// PASSWORD HASHING: passwordHash stores Argon2id encoded hashes ($argon2id$).
+// -----------------------------------------------------------------------------
+
 model PowerSupplyCompany {
-  id        String        @id @default(uuid()) @db.Uuid
+  id        String        @id @default(uuid()) @db.Uuid // UUIDv7 time-ordered PK
   name      String        @unique @db.VarChar(150) // e.g. UPCL, UPPCL, Reliance Power Ltd
   status    CompanyStatus @default(ACTIVE)
   createdAt DateTime      @default(now()) @map("created_at")
@@ -192,11 +198,11 @@ model CountryCode {
 }
 
 model User {
-  id                 String      @id @default(uuid()) @db.Uuid
+  id                 String      @id @default(uuid()) @db.Uuid // UUIDv7 time-ordered PK
   fullName           String      @map("full_name") @db.VarChar(120)
   email              String?     @unique @db.VarChar(150)
   phoneNumber        String      @unique @map("phone_number") @db.VarChar(20)
-  passwordHash       String      @map("password_hash") @db.VarChar(255)
+  passwordHash       String      @map("password_hash") @db.VarChar(255) // Argon2id hash ($argon2id$)
   role               UserRole    @default(TENANT)
   mustChangePassword Boolean     @default(false) @map("must_change_password")
   isSystemActive     Boolean     @default(true) @map("is_system_active")

@@ -79,8 +79,8 @@
 All engineering artifacts, schemas, APIs, and implementations strictly follow the stage-wise roadmap documented in [`docs/00-engineering-workflow.md`](docs/00-engineering-workflow.md):
 
 - **Stage 01**: Requirement Analysis ([docs/01-requirement-analysis.md](docs/01-requirement-analysis.md)) — Confirmed ✅
-- **Stage 02**: Functional Requirements & ACs ([docs/02-functional-requirements.md](docs/02-functional-requirements.md), [docs/acceptance-criteria.md](docs/acceptance-criteria.md)) — In Progress ⏳
-- **Stage 03**: Non-Functional Requirements ([docs/03-non-functional-requirements.md](docs/03-non-functional-requirements.md))
+- **Stage 02**: Functional Requirements & ACs ([docs/02-functional-requirements.md](docs/02-functional-requirements.md), [docs/acceptance-criteria.md](docs/acceptance-criteria.md)) — Confirmed ✅
+- **Stage 03**: Non-Functional Requirements ([docs/03-non-functional-requirements.md](docs/03-non-functional-requirements.md)) — In Progress ⏳
 - **Stage 04**: Domain Model & State Machines ([docs/04-domain-model.md](docs/04-domain-model.md))
 - **Stage 05**: Database Design & DDL ([docs/05-database-design.md](docs/05-database-design.md))
 - **Stage 06**: API Design & Contracts ([docs/06-api-design.md](docs/06-api-design.md))

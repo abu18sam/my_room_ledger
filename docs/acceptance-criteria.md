@@ -1,7 +1,7 @@
 # Stage 02 — Acceptance Criteria
 
-**Status:** In Progress  
-**Date locked:** —  
+**Status:** Confirmed & Locked ✅  
+**Date locked:** 2026-08-09  
 **Upstream:** [02-functional-requirements.md](02-functional-requirements.md)  
 **Downstream:** Stages 06 (API Design), 13–14 (Implementation & Tests)  
 **Workflow tracker:** [00-engineering-workflow.md](00-engineering-workflow.md)
@@ -412,6 +412,6 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 
 ## Gate
 
-**Awaiting user confirmation.**
+**Stage 02 Confirmed & Locked ✅** (Approved by User)
 
-**Next:** Stage 03 — Non-Functional Requirements → `docs/03-non-functional-requirements.md`
+**Next:** Stage 03 — Non-Functional Requirements → [`docs/03-non-functional-requirements.md`](03-non-functional-requirements.md)

@@ -1,7 +1,7 @@
 # Stage 02 — Functional Requirements
 
-**Status:** In Progress  
-**Date locked:** —  
+**Status:** Confirmed & Locked ✅  
+**Date locked:** 2026-08-09  
 **Upstream:** [01-requirement-analysis.md](01-requirement-analysis.md), MASTER.md business rules  
 **Downstream:** [acceptance-criteria.md](acceptance-criteria.md), Stage 03 NFRs  
 **Workflow tracker:** [00-engineering-workflow.md](00-engineering-workflow.md)
@@ -400,6 +400,6 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 ## 7. Gate
 
-**Awaiting user confirmation.**
+**Stage 02 Confirmed & Locked ✅** (Approved by User)
 
-**Next:** Stage 03 — Non-Functional Requirements → `docs/03-non-functional-requirements.md`
+**Next:** Stage 03 — Non-Functional Requirements → [`docs/03-non-functional-requirements.md`](03-non-functional-requirements.md)

@@ -155,6 +155,14 @@ enum RequestStatus {
   REJECTED
 }
 
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+
 // MODEL DEFINITIONS
 // -----------------------------------------------------------------------------
 // PRIMARY KEY STRATEGY: All models use UUIDv7 (@default(dbgenerated("uuidv7()")) / @default(uuid()))

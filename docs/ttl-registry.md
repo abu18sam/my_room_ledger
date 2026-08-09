@@ -1,0 +1,117 @@
+# 🔐 Centralized Token & Time-To-Live (TTL) Registry
+
+## System: My Room Ledger / RentAway (NestJS Backend API & PWA Frontend)
+
+**Authoritative Single Source of Truth:** This document is the **sole authoritative reference** for all token lifecycles, expiration rules, Time-To-Live (TTL) durations, temporary access links, and signed document URLs across the entire application ecosystem. All upstream specifications ([`docs/business-rules.md`](business-rules.md), [`docs/02-functional-requirements.md`](02-functional-requirements.md), [`docs/03-non-functional-requirements.md`](03-non-functional-requirements.md), [`api-contracts.md`](../api-contracts.md), [`architecture.md`](../architecture.md)) MUST cross-reference this document rather than duplicating TTL values.
+
+---
+
+## 1. Master System TTL Registry Table
+
+| Token / Mechanism | Purpose & Context | TTL Duration | One-Time Use | Refreshable | Storage / Transport Mechanism | Invalidation & Revocation Trigger | Authoritative Ref |
+|---|---|---|---|---|---|---|---|
+| **Access Token** | User API Authentication & RBAC Authorization bearer token. | **10 minutes** | No | Yes (via Refresh Token) | Bearer Token in HTTP `Authorization` Header or Secure Cookie | Expired timestamp (`exp`), session force logout (`FORCE_LOGOUT`), user deletion. | BR-10.1, NFR-01 |
+| **Refresh Token** | Secure session renewal token used to issue new 10-minute access tokens. | **7 days** | No | Yes (Token Rotation) | `HttpOnly` `SameSite=Strict` `Secure` Cookie | Expired timestamp (`exp`), user logout, session force logout, password reset. | BR-10.1, NFR-01 |
+| **User Invitation Link** | Onboarding link sent to new Landlords/Tenants for account registration. | **30 minutes** | **Yes** | No | Encrypted URL Parameter (`/register?token=...`) | Expired timestamp, consumed upon registration (`usedAt = now()`), or admin cancellation. | BR-11, FR-P10 |
+| **Password Reset Link (Email)** | Self-service password recovery token sent via email link. | **15 minutes** | **Yes** | No | Email Link Parameter (`/reset-password?token=...`) | Expired timestamp, consumed upon password reset completion, or new link request. | BR-11, FR-P05 |
+| **Temp Password Fallback** | Admin-generated one-time temporary password for recovery without email. | **30 minutes** | **Yes** | No | Masked Temporary Credential (`mustChangePassword = true`) | Expired timestamp, consumed upon mandatory first login password change. | BR-11, FR-P07 |
+| **First-Login Setup Token** | Initial setup link issued to newly onboarded tenants by property managers. | **24 hours** | **Yes** | No | Email / SMS Setup Link Parameter (`/setup-account?token=...`) | Expired timestamp, consumed upon initial password setup completion. | BR-11, FR-P01 |
+| **Signed R2 Document URL** | Secure expiring download/view URL for lease agreements, bills, and avatars. | **15 minutes** | No | No | Expiring Query Parameter (`?X-Amz-Expires=900&X-Amz-Signature=...`) | Expired timestamp (`X-Amz-Expires`). Client must request a new signed URL after expiry. | BR-10.3, NFR-03 |
+| **User Session Tracking** | Database session tracking record in PostgreSQL (`user_sessions`). | **7 days** | No | No | PostgreSQL `user_sessions` Table (`expires_at`) | Administrative force logout, 7 days of inactivity, or user account termination. | BR-01.5, BR-16.2 |
+
+---
+
+## 2. Detailed Token Lifecycles & Security Invariants
+
+### 2.1 Access Token & Refresh Token Pair (JWT)
+1. **Access Token (10 Minutes)**:
+   - Contains minimal claims (`sub` = userId, `role`, `sessionId`, `iat`, `exp`).
+   - Validated statelessly on every protected API endpoint via NestJS `JwtAuthGuard`.
+   - **Short Lifespan Security**: 10-minute TTL limits the vulnerability window if a bearer token is intercepted.
+2. **Refresh Token (7 Days)**:
+   - Stored in a secure `HttpOnly` cookie to prevent JavaScript XSS extraction.
+   - Leverages **Token Rotation**: Every time `/api/v1/auth/refresh` is called, a new Refresh Token is issued and the old one is invalidated.
+   - Purged instantly from database upon user logout or administrative force logout (`FORCE_LOGOUT_USER` / `FORCE_LOGOUT_ROLE`).
+
+---
+
+### 2.2 User Invitation Link (30 Minutes — Single Use)
+1. Issued by Super Admin or Admin when inviting new Landlords or Tenants.
+2. Token contains cryptographically secure random bytes stored hashed in DB (`invitation_tokens` table) with `expiresAt = now() + 30 minutes`.
+3. **Single-Use Enforcement**: When the recipient completes registration, backend sets `usedAt = now()`. Any subsequent attempt to reuse the link is rejected with `HTTP 400 LINK_ALREADY_USED`.
+
+---
+
+### 2.3 Password Recovery Workflows
+1. **Email Reset Link (15 Minutes — Single Use)**:
+   - Sent via email upon self-service password reset request.
+   - Valid for **15 minutes**. Immediately invalidated once password is successfully updated.
+2. **No-Email Temp Password Fallback (30 Minutes — Single Use)**:
+   - Generated by Admin for tenants without email access.
+   - Valid for **30 minutes**. Account flagged with `mustChangePassword = true`.
+   - The user MUST set a new password immediately upon login; failure to do so within 30 minutes expires the temp password.
+
+---
+
+### 2.4 Cloudflare R2 Signed Document URLs (15 Minutes)
+1. Document files (leases, government ID uploads, electricity bills) are stored encrypted at-rest using **AES-256 GCM** in private Cloudflare R2 buckets.
+2. Direct bucket access is strictly blocked. Files are accessed via backend-generated Amazon S3/R2 presigned URLs with `X-Amz-Expires = 900` (15 minutes).
+3. **Expiry Handling**: When a signed URL expires after 15 minutes, the frontend PWA calls `GET /api/v1/documents/{id}/download-url` to obtain a fresh signed URL.
+
+---
+
+## 3. Backend & Frontend Enforcement Architecture
+
+```
+[Client PWA Request]
+         │
+         ▼
+┌────────────────────────────────────────────────────────┐
+│ NestJS ThrottlerGuard (Rate Limiting)                   │
+│   • Auth endpoints: 5 req/min                          │
+│   • Standard API: 100 req/min                          │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│ JwtAuthGuard & RolesGuard                              │
+│   • Check Access Token signature & exp (<= 10 min)     │
+│   • Check UserSession in DB (expires_at <= 7 days)     │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+             ┌─────────────┴─────────────┐
+             ▼                           ▼
+    [Valid Token]               [Expired / Invalid]
+  Process Controller API      Return HTTP 401 TOKEN_EXPIRED
+                                 (Trigger Frontend Refresh)
+```
+
+### 3.1 Backend NestJS Implementation Standards
+- **Token Expiration Checking**:
+  - `JwtModule.register({ secret: ..., signOptions: { expiresIn: '10m' } })` for access tokens.
+  - `JwtModule.register({ secret: ..., signOptions: { expiresIn: '7d' } })` for refresh tokens.
+- **Database Expiration Queries**:
+  - All token lookups execute explicit timestamp conditions: `WHERE token_hash = :hash AND expires_at > NOW() AND used_at IS NULL`.
+- **Standard Error Envelopes for Expired Tokens**:
+  - Access Token Expired $\rightarrow$ `HTTP 401 UNAUTHORIZED` (`error: "TOKEN_EXPIRED"`).
+  - Invitation Link Expired $\rightarrow$ `HTTP 410 GONE` (`error: "INVITATION_LINK_EXPIRED"`).
+  - Reset Link Expired $\rightarrow$ `HTTP 410 GONE` (`error: "PASSWORD_RESET_LINK_EXPIRED"`).
+  - Signed URL Expired $\rightarrow$ `HTTP 403 FORBIDDEN` (`error: "SIGNED_URL_EXPIRED"`).
+
+---
+
+### 3.2 Frontend PWA Interceptor Handling
+- Next.js HTTP client (Axios/Fetch wrapper) captures `HTTP 401 TOKEN_EXPIRED` responses.
+- Automatically executes background silent refresh (`POST /api/v1/auth/refresh`).
+- If refresh succeeds, original API request is retried seamlessly without user disruption.
+- If refresh fails (7-day Refresh Token expired or session revoked), user is redirected to `/login?session_expired=true`.
+
+---
+
+## 4. Ongoing Governance & Extensibility Rules
+
+Whenever a new token-based feature, temporary URL, or access grant is introduced to the application:
+1. **Mandatory Registry Update**: Add an entry to the [Master System TTL Registry Table](#1-master-system-ttl-registry-table) before writing backend code.
+2. **Explicit TTL Justification**: Document the security rationale for the chosen TTL duration.
+3. **Single-Use Verification**: Explicitly specify whether the token is one-time use and define its DB invalidation mechanism (`usedAt = now()`).
+4. **No Hardcoding Rule**: Hardcoding TTL values outside this registry or application configuration files (`.env` / `ttl.config.ts`) is strictly forbidden.

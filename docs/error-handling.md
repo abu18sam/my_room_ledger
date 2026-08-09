@@ -93,6 +93,7 @@ Triggered when request payload (`req.body`), URL parameters (`req.params`), or q
 | `INVALID_CREDENTIALS` | `401` | Auth | Login failed due to wrong email/phone or incorrect password. |
 | `TOKEN_EXPIRED` | `401` | Auth | JWT access token or password reset link token has expired. |
 | `INVALID_TOKEN` | `401` | Auth | JWT access token or refresh token is malformed, revoked, or tampered with. |
+| `SESSION_REVOKED` | `401` | Auth | Active database session has been forcefully terminated or revoked by an administrator (ERR-1002). Overrides access token TTL. |
 | `FORBIDDEN` | `403` | Auth | User is authenticated but lacks the required role or ownership permissions for the target resource. |
 | `MUST_CHANGE_PASSWORD` | `403` | Auth | Account is flagged `mustChangePassword = true`. User must change password before accessing endpoints. |
 | `ROLE_HIERARCHY_VIOLATION` | `403` | Auth | Lower role user attempted an administrative or session force-logout operation on an equal or higher role account. |
@@ -196,6 +197,25 @@ Returned when `POST /api/v1/ledgers/room-rent/{id}/payments` attempts to record 
     "alreadyPaid": 1000.00,
     "remainingBalance": 1500.00,
     "attemptedPayment": 3000.00
+  }
+}
+```
+
+### 4.5 `SESSION_REVOKED` (HTTP 401 Unauthorized)
+Returned when an API request carries an access token whose underlying database session has been forcefully terminated or revoked by an administrator (BR-16.5):
+
+```json
+{
+  "statusCode": 401,
+  "error": "SESSION_REVOKED",
+  "message": "Your session has been terminated by an administrator. Please log in again.",
+  "metadata": {
+    "errorCode": "ERR-1002",
+    "sessionId": "s9010000-0000-4000-8000-000000000901",
+    "revokedAt": "2026-08-09T17:40:00Z",
+    "revocationReason": "ADMINISTRATIVE_FORCE_LOGOUT",
+    "timestamp": "2026-08-09T17:42:15Z",
+    "requestId": "req-88192039-4912"
   }
 }
 ```

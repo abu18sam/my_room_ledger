@@ -57,6 +57,7 @@ All validation failures (`ZodValidationPipe`) return field-level details:
 | `401` | `UNAUTHORIZED` | Missing, invalid, or expired JWT access token | `{}` |
 | `401` | `INVALID_CREDENTIALS` | Incorrect email/phone or password on login | `{}` |
 | `401` | `TOKEN_EXPIRED` | Expired access token or password reset token | `{}` |
+| `401` | `SESSION_REVOKED` | Database session forcefully terminated or revoked (ERR-1002). Overrides access token TTL. | `errorCode`, `sessionId`, `revokedAt`, `timestamp`, `requestId` |
 | `403` | `FORBIDDEN` | Valid JWT but insufficient role or ownership | `{}` |
 | `403` | `MUST_CHANGE_PASSWORD` | Account flagged `mustChangePassword = true` | `{}` |
 | `404` | `NOT_FOUND` | Target entity ID does not exist | `resourceId` |
@@ -708,6 +709,7 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
 
 ### `GET /api/v1/files/{documentId}/signed-url`
 - **Access**: Authorized Role Scope Check
+- **Purpose**: Generates an expiring signed URL for document retrieval. All signed URL TTLs (15 minutes / 900s) are governed by [`docs/ttl-registry.md`](docs/ttl-registry.md).
 - **Response (200 OK)**:
   ```json
   {

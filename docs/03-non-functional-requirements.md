@@ -15,9 +15,9 @@
 
 | NFR ID | Requirement | Metric / Constraint Target | Verification Method | Source Rule |
 |---|---|---|---|---|
-| **NFR-01** | **JWT & Token Security** | Signed JWTs (RS256 or HS256 with $\ge 256$-bit key). Access Token TTL = **15 minutes**; Refresh Token TTL = **7 days**. Protected routes require `@UseGuards(JwtAuthGuard, RolesGuard)`. | Security Audit & Unit Test assertions | BR-10.1, BR-01.1 |
+| **NFR-01** | **JWT & Token Security** | Signed JWTs (RS256 or HS256 with $\ge 256$-bit key). Access Token TTL = **10 minutes**; Refresh Token TTL = **7 days**. All token lifecycles governed by [`docs/ttl-registry.md`](ttl-registry.md). Protected routes require `@UseGuards(JwtAuthGuard, RolesGuard)`. | Security Audit & Unit Test assertions | BR-10.1, BR-01.1, docs/ttl-registry.md |
 | **NFR-02** | **Password Hashing & Storage** | Passwords hashed using **Argon2id** (memory: 64MB, iterations: 3, parallelism: 4) or **bcrypt** (cost factor 12) with unique per-user salt. Zero plaintext passwords stored or logged. | DB Column Inspection & Auth Service Unit Tests | BR-10.2, BR-11 |
-| **NFR-03** | **Encrypted Cloud Object Storage** | Files uploaded to Cloudflare R2 MUST be encrypted at-rest using **AES-256 GCM**. File access served strictly via backend-generated signed URLs with **15-minute expiration**. | API Integration Test & Storage Header Audit | BR-10.3, BR-08 |
+| **NFR-03** | **Encrypted Cloud Object Storage** | Files uploaded to Cloudflare R2 MUST be encrypted at-rest using **AES-256 GCM**. File access served strictly via backend-generated signed URLs with **15-minute expiration** as defined in [`docs/ttl-registry.md`](ttl-registry.md). | API Integration Test & Storage Header Audit | BR-10.3, BR-08, docs/ttl-registry.md |
 | **NFR-04** | **Session Revocation SLA** | Administrative force logout (`FORCE_LOGOUT_USER` / `FORCE_LOGOUT_ROLE`) MUST purge user active session records from PostgreSQL within **$\le 500\text{ ms}$**, immediately blocking token refresh attempts. | Performance & Integration Test | BR-01.5, BR-16.2 |
 | **NFR-05** | **Input Sanitization & Injection Defense** | 100% of API endpoints validate request payloads via `ZodValidationPipe`. Database access via Prisma ORM parameterized queries to eliminate SQL injection, XSS, and parameter pollution. | Static Code Analysis & DAST Vulnerability Scan | BR-10.4, BR-15.3 |
 
@@ -60,7 +60,7 @@
 | NFR ID | Requirement | Metric / Constraint Target | Verification Method | Source Rule |
 |---|---|---|---|---|
 | **NFR-17** | **Uniform JSON Envelope** | 100% of API endpoints return standardized JSON envelopes (`statusCode`, `error`, `message`, `data`, `metadata`). Internal stack traces and raw SQL errors strictly stripped. | Global Exception Filter Unit Test | BR-15.1, BR-15.2 |
-| **NFR-18** | **Rate Limiting & Anti-Abuse** | NestJS `ThrottlerModule` limits API requests: **100 req/min** per IP for standard routes; **5 req/min** per IP for authentication & password reset endpoints. | Automated API Security Scan | BR-11, BR-12 |
+| **NFR-18** | **Rate Limiting & Anti-Abuse** | NestJS `ThrottlerModule` limits API requests: **100 req/min** per IP for standard routes; **5 req/min** per IP for authentication & password reset endpoints. See [`docs/ttl-registry.md`](ttl-registry.md) for auth token throttling rules. | Automated API Security Scan | BR-11, BR-12, docs/ttl-registry.md |
 
 ---
 

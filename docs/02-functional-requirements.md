@@ -91,7 +91,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 |----|---|---|
 | **FR-P05** | User (Tenant, Landlord, Admin) submits a "Forgot Password" request from the login page by providing their registered email. | Auth Update |
 | **FR-P06** | Raising a reset request triggers a real-time notification badge in the **Admin / Super Admin frontend header notification panel** (header bell icon). | Auth Update |
-| **FR-P07** | Upon Admin/Super Admin approval, the system generates a signed reset link (token valid for **15 minutes**) and emails it to the user. | Auth Update |
+| **FR-P07** | Upon Admin/Super Admin approval, the system generates a signed reset link (token valid for **15 minutes** as specified in [`docs/ttl-registry.md`](ttl-registry.md)) and emails it to the user. | Auth Update, docs/ttl-registry.md |
 | **FR-P08** | Clicking the email link redirects the user to the frontend reset page (`/reset-password?token=...`), displaying the user's **Name** and **Email**. | Auth Update |
 | **FR-P09** | User enters **New Password** + **Confirm New Password** (masked with toggle, regex validated). On success, the reset token expires immediately (single-use), all active sessions across all devices are invalidated, and the user is redirected to the Login page. | Auth Update |
 | **FR-P09a** | Using a reset link token more than once or after 15 minutes returns `HTTP 400 TOKEN_EXPIRED` or `HTTP 400 TOKEN_ALREADY_USED`. | Auth Update |
@@ -100,7 +100,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 | ID | Requirement | Source |
 |----|---|---|
-| **FR-P10** | **Admin / Fallback Temp Password Generation**: When a user has no registered email (or for direct Admin reset), Admin/Super Admin approval generates a secure **temporary password** (valid for **30 minutes**) displayed in a single-view Admin modal for secure manual share (in-person/SMS). | Auth Update |
+| **FR-P10** | **Admin / Fallback Temp Password Generation**: When a user has no registered email (or for direct Admin reset), Admin/Super Admin approval generates a secure **temporary password** (valid for **30 minutes** as specified in [`docs/ttl-registry.md`](ttl-registry.md)) displayed in a single-view Admin modal for secure manual share (in-person/SMS). | Auth Update, docs/ttl-registry.md |
 | **FR-P11** | User logs in using the temporary password and is automatically redirected to the **"Create New Password" page** (`mustChangePassword = true`). | Auth Update |
 | **FR-P11a** | The "Create New Password" page displays the user's **Name** (and Email if available). User enters **New Password** + **Confirm New Password**, validated against regex complexity rules with field-level error messages. | Auth Update |
 | **FR-P12** | **Global Cross-Device Session Invalidation**: Upon any successful password update or reset, **ALL active sessions across ALL devices** for that user are immediately invalidated (`RefreshToken` records purged from DB). User must log in again on all devices. | Auth Update |
@@ -260,7 +260,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 |----|---|---|
 | **FR-68** | File uploads are processed through the **backend API only** — clients never upload directly to Cloudflare R2. | MASTER Rule 10.2 |
 | **FR-69** | The backend **encrypts every uploaded file** using AES-256 GCM before writing to Cloudflare R2. The encryption key, IV, and auth tag are stored in PostgreSQL `DocumentMetadata`. | MASTER Rule 10.2 |
-| **FR-70** | File access is provided **only via short-lived backend-generated signed URLs** (15-minute expiry). The backend decrypts and streams the binary to the authorised client. | MASTER Rule 10.2 |
+| **FR-70** | File access is provided **only via short-lived backend-generated signed URLs** (15-minute expiry as defined in [`docs/ttl-registry.md`](ttl-registry.md)). The backend decrypts and streams the binary to the authorised client. | MASTER Rule 10.2, docs/ttl-registry.md |
 | **FR-71** | Allowed file types: `.pdf`, `.jpg`, `.jpeg`, `.png`. Maximum file size: **10 MB**. Backend enforces both limits before processing. | Stage 01 EC-ELE-05 |
 | **FR-72** | File access is gated by role and resource ownership — a user can only retrieve documents they are authorised for. | MASTER Rule 1, 10.2 |
 
@@ -348,6 +348,19 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 ---
 
+### 3.17 Centralized Session Validation & Revocation Enforcement
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-113** | Centralized security middleware (`SessionValidationGuard`) MUST validate JWT signature/expiration AND verify active database session status (`user_sessions.isRevoked = false`) before every protected API execution. | BR-16.5, docs/error-handling.md |
+| **FR-114** | Revoking a session in the database MUST immediately block subsequent API requests using tokens issued for that session, overriding remaining access token TTL. | BR-16.5, BR-01.5 |
+| **FR-115** | Administrative force logout (`FORCE_LOGOUT_USER` / `FORCE_LOGOUT_ROLE`) MUST purge or mark revoked all active `user_sessions` for target user(s) with sub-500ms propagation. | BR-01.5, BR-16.2 |
+| **FR-116** | API requests made using tokens of a revoked session MUST be rejected with `HTTP 401 SESSION_REVOKED` (code: `ERR-1002`) returning structured metadata (`timestamp`, `requestId`, `sessionId`, `revokedAt`). | BR-16.5, docs/error-handling.md |
+| **FR-117** | Frontend PWA upon receiving `HTTP 401 SESSION_REVOKED` MUST immediately purge all local token storage, alert the user, and redirect to `/login?session_revoked=true`. | BR-16.5 |
+| **FR-118** | Concurrent API calls made on a revoked session MUST all be rejected simultaneously. | BR-16.5, BR-14.1 |
+
+---
+
 ## 4. Traceability Map (FR → AC Group)
 
 | FR IDs | AC Group | Domain |
@@ -374,6 +387,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | FR-97 – FR-100 | AC-97 | RBAC Matrix & Payment Transaction Update Rules |
 | FR-101 – FR-106 | AC-101 | Flexible Billing Cycles & Electricity Reconciliation Engine |
 | FR-107 – FR-112 | AC-107 | Tenant Electricity Payment Cutoff & Master Cycle Allocation Rules |
+| FR-113 – FR-118 | AC-113 | Centralized Session Validation & Revocation Enforcement |
 
 ---
 

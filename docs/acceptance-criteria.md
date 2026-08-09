@@ -16,7 +16,7 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 
 | ID | Criterion |
 |----|---|
-| **AC-01.1** | Given valid email and password, login returns HTTP 200 with a signed JWT access token. A `RefreshToken` record is created in the database and delivered as an `HttpOnly; Secure; SameSite=Strict` cookie. |
+| **AC-01.1** | Given valid email and password, login returns HTTP 200 with a signed 10-minute JWT access token (governed by [`docs/ttl-registry.md`](ttl-registry.md)). A `RefreshToken` record is created in the database and delivered as an `HttpOnly; Secure; SameSite=Strict` cookie. |
 | **AC-01.2** | Given wrong password or unknown email, login returns HTTP 401 `INVALID_CREDENTIALS`; no token is issued and no cookie is set. |
 | **AC-01.3** | Given a valid JWT on a protected request, the request is authorised; the acting user identity and role resolve from the token payload. |
 | **AC-01.4** | Given a missing JWT on a protected request, the API returns HTTP 401 `UNAUTHORIZED`. |
@@ -89,11 +89,11 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 | ID | Criterion |
 |----|---|
 | **AC-P05.1** | Submitting a "Forgot Password" request from login page creates a `PENDING` request and triggers a real-time notification in the Admin/Super Admin frontend header bell panel. |
-| **AC-P05.2** | **Email Flow (Registered Email)**: Upon Admin approval, system sends an email with a signed reset link valid for **15 minutes**. |
+| **AC-P05.2** | **Email Flow (Registered Email)**: Upon Admin approval, system sends an email with a signed reset link valid for **15 minutes** (governed by [`docs/ttl-registry.md`](ttl-registry.md)). |
 | **AC-P05.3** | Clicking the reset link redirects to `/reset-password?token=...` displaying the user's **Name** and **Email**. User enters New Password + Confirm New Password. |
 | **AC-P05.4** | On successful reset via link: reset link token expires immediately (single-use), **ALL active sessions on all devices are purged**, and user is redirected to Login page. |
 | **AC-P05.5** | Attempting to use an expired (> 15 mins) or already-used reset link token returns HTTP 400 `TOKEN_EXPIRED` or `TOKEN_ALREADY_USED`. |
-| **AC-P05.6** | **No-Email Fallback Flow**: Given a user without a registered email (or direct Admin reset), Admin approval generates a **temporary password valid for 30 minutes** displayed in an Admin single-view modal for manual share. |
+| **AC-P05.6** | **No-Email Fallback Flow**: Given a user without a registered email (or direct Admin reset), Admin approval generates a **temporary password valid for 30 minutes** (governed by [`docs/ttl-registry.md`](ttl-registry.md)) displayed in an Admin single-view modal for manual share. |
 | **AC-P05.7** | Target user logging in with temporary password is automatically redirected to the "Create New Password" page (`mustChangePassword = true`) showing their Name (and Email if available). |
 | **AC-P05.8** | Setting new password successfully sets `mustChangePassword = false`, invalidates the temporary password, purges all active sessions across all devices, and redirects user to Login page. |
 
@@ -297,7 +297,7 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 | **AC-68.4** | The uploaded file in Cloudflare R2 is not readable as plain binary — it is encrypted ciphertext. |
 | **AC-68.5** | `GET /api/v1/files/:id/signed-url` returns a short-lived signed URL (valid ≤ 15 minutes) for authorised users. |
 | **AC-68.6** | Accessing a file belonging to another user's resource returns HTTP 403 `FORBIDDEN`. |
-| **AC-68.7** | A signed URL that has expired returns an error when accessed — the file is not served. |
+| **AC-68.7** | A signed URL that has expired (> 15 minutes as defined in [`docs/ttl-registry.md`](ttl-registry.md)) returns HTTP 403 `SIGNED_URL_EXPIRED` when accessed — the file is not served. |
 
 ---
 
@@ -407,6 +407,19 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 | **AC-107.4** | Multi-cycle delayed payments (e.g. paid 28 Apr for a Feb room ledger) are assigned strictly to the master cycle window containing `paymentDate` (24 Apr → 24 May). Past settled cycles are never re-opened. |
 | **AC-107.5** | Multiple partial payments against a single room electricity ledger on different dates are split independently into their respective master cycle windows based on each transaction's `paymentDate`. |
 | **AC-107.6** | Unpaid or overdue ledgers contribute $₹0.00$ to tenant collections for a master cycle until actual cash payment transactions are recorded. |
+
+---
+
+## AC-113 — Centralized Session Validation & Revocation Enforcement
+
+**Requirements:** FR-113, FR-114, FR-115, FR-116, FR-117, FR-118
+
+| ID | Criterion |
+|----|---|
+| **AC-113.1** | An API request using a JWT access token whose underlying database session is marked `isRevoked = true` (or purged) is immediately rejected with `HTTP 401 SESSION_REVOKED` (code: `ERR-1002`). |
+| **AC-113.2** | Executing an Admin force logout (`FORCE_LOGOUT_USER` / `FORCE_LOGOUT_ROLE`) revokes all active database session records for target user(s); subsequent API requests on all devices return `HTTP 401 SESSION_REVOKED` within $\le 500\text{ ms}$. |
+| **AC-113.3** | A non-expired access token (e.g., 2 minutes old out of 10 minutes TTL) on a revoked session is rejected immediately, proving that session revocation overrides token TTL. |
+| **AC-113.4** | Frontend PWA upon receiving `HTTP 401 SESSION_REVOKED` clears all token storage, displays a session termination alert to the user, and redirects immediately to `/login?session_revoked=true`. |
 
 ---
 

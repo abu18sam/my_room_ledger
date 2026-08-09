@@ -169,12 +169,14 @@ This document serves as the **single authoritative source of truth for all domai
 - Returns `HTTP 400 VALIDATION_ERROR` with structured field-level error details.
 
 #### BR-10.2 — Session & Storage Security
+> **Single Source of Truth**: All token lifecycles, expiration rules, and TTL governance are specified in [`docs/ttl-registry.md`](ttl-registry.md).
+
 - **Multi-Device Login**: Users can log in from multiple devices simultaneously. Each session maintains an independent `RefreshToken` record in DB.
 - **Session Isolation & Logout**: Sessions are isolated — logout terminates only the specific device's session.
-- **JWT Security**: Access tokens expire in 15 mins (in-memory). Refresh tokens expire in 7 days (`HttpOnly; Secure; SameSite=Strict` cookie).
+- **JWT Security**: Access tokens expire in **10 minutes** (in-memory). Refresh tokens expire in 7 days (`HttpOnly; Secure; SameSite=Strict` cookie). All TTLs governed by [`docs/ttl-registry.md`](ttl-registry.md).
 - **Backend File Encryption**: Sensitive files (Govt IDs, receipts, supplier bills) encrypted AES-256 GCM before storage in private Cloudflare R2 bucket.
-- **Zero Public File Access**: File access strictly via short-lived backend-generated expiring signed URLs (15-min expiry).
-- **Rate Limiting & Security Headers**: Helmet.js enabled globally. `@nestjs/throttler` (100 req/15min globally; 5 req/15min auth). CORS locked down to `NEXT_PUBLIC_FRONTEND_URL`.
+- **Zero Public File Access**: File access strictly via short-lived backend-generated expiring signed URLs (15-min expiry as defined in [`docs/ttl-registry.md`](ttl-registry.md)).
+- **Rate Limiting & Security Headers**: Helmet.js enabled globally. `@nestjs/throttler` (100 req/min globally; 5 req/min auth). CORS locked down to `NEXT_PUBLIC_FRONTEND_URL`.
 
 #### BR-10.4 — Universal Non-Sequential UUID Primary Key Strategy
 - All primary keys across all database tables MUST be generated using non-sequential, 128-bit UUIDs (`gen_random_uuid()` in PostgreSQL 13+ / `@default(uuid())` in Prisma ORM).
@@ -192,12 +194,11 @@ This document serves as the **single authoritative source of truth for all domai
 
 #### BR-11.2 — Forgot Password Workflow (With Registered Email)
 - User submits request from login page $\rightarrow$ Real-time notification in Admin header bell panel.
-- On Admin approval, system emails a signed reset link (token valid for **15 minutes**).
-- Clicking link redirects to `/reset-password?token=...` displaying User Name & Email. User enters New Password + Confirm New Password.
-- On success: password updated, link token expires immediately (single-use), **ALL active sessions on all devices invalidated**, user redirected to Login page.
+- On Admin approval, system emails a signed reset link (token valid for **15 minutes** as specified in [`docs/ttl-registry.md`](ttl-registry.md)).
+- Single-use token: Invalidated immediately upon password update (`usedAt = now()`).
 
 #### BR-11.3 — Fallback Workflow (No Registered Email — Admin, Landlord & Tenant)
-- User raises reset request $\rightarrow$ Admin approves and generates a secure **temporary password (valid for 30 minutes)** displayed in Admin single-view modal.
+- User raises reset request $\rightarrow$ Admin approves and generates a secure **temporary password (valid for 30 minutes)** displayed in Admin single-view modal (governed by [`docs/ttl-registry.md`](ttl-registry.md)).
 - Admin shares temporary password securely (in-person/SMS).
 - User logs in with temporary password $\rightarrow$ Forced redirection to **"Create New Password" page** (`mustChangePassword = true`).
 - Displays User Name (and Email if available). User enters New Password + Confirm New Password.
@@ -378,6 +379,12 @@ OVERDUE
 #### BR-16.4 — Centralized Audit Registry Synchronization
 - All recognized audit `actionType` strings and categories are formally indexed in [`docs/audit-logging.md`](file:///Users/abdulsamad/Desktop/Projects/my_room_ledger/docs/audit-logging.md).
 - Whenever a new feature or state-changing action is added to the system, `docs/audit-logging.md` MUST be updated first with its `actionType` specification before backend code implementation.
+
+#### BR-16.5 — Centralized Session Validation & Revocation Enforcement Pipeline
+- **Every API Request Session Check**: Every protected API request carrying an authentication bearer token MUST execute a DB/Redis active session validation (`SessionValidationGuard`) BEFORE entering business logic controllers.
+- **Revocation Overrides Access Token TTL**: Even if a 10-minute access token signature and expiration (`exp`) are valid, if the underlying database session (`user_sessions.isRevoked = true` or record purged) has been revoked or terminated, the request MUST be rejected immediately with `HTTP 401 UNAUTHORIZED` (`error: "SESSION_REVOKED"`, code: `ERR-1002`).
+- **Instant Sub-500ms Revocation Propagation**: When an administrative force logout (`FORCE_LOGOUT_USER` / `FORCE_LOGOUT_ROLE`) is executed, ALL active session records for target user(s) are revoked/purged within $\le 500\text{ ms}$.
+- **Frontend Auto-Logout Reaction**: Upon receiving `HTTP 401 SESSION_REVOKED`, frontend PWA client interceptors MUST immediately clear all local token storage, alert the user ("Your session has been terminated by an administrator. Please log in again."), and redirect to `/login?session_revoked=true`.
 
 
 

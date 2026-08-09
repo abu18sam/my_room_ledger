@@ -34,7 +34,7 @@ The system is built using a **Decoupled Security-First Monolith** pattern:
 |   +------------------------------------+------------------------------------+   |
 |                                        v                                        |
 |   +-------------------------------------------------------------------------+   |
-|   | JWT Auth Guard → Role Guard (SUPER_ADMIN | ADMIN | LANDLORD | TENANT)   |   |
+|   | JWT Auth Guard & SessionValidationGuard (Active DB Session Check) → Role Guard |   |
 |   +------------------------------------+------------------------------------+   |
 |                                        v                                        |
 |   +-------------------------------------------------------------------------+   |
@@ -117,13 +117,13 @@ Incoming HTTP Request
             ▼
 [NestJS Backend Execution]
   ├─ ROUTE A (User Has Email):
-  │    ├─ Generates Signed Reset Link Token (15-min TTL)
+  │    ├─ Generates Signed Reset Link Token (15-min TTL as specified in docs/ttl-registry.md)
   │    ├─ Emails Link to User
   │    ├─ User clicks link → FE `/reset-password?token=...` (displays Name & Email)
   │    └─ User enters New Password + Confirm → Token invalidated, ALL sessions purged, redirect to Login
   │
   └─ ROUTE B (No Registered Email — Fallback Flow):
-       ├─ Generates Secure Temporary Password (30-min TTL) & sets `mustChangePassword = true`
+       ├─ Generates Secure Temporary Password (30-min TTL as specified in docs/ttl-registry.md) & sets `mustChangePassword = true`
        ├─ Displays Temp Password in Admin Single-View Modal (recorded in audit logs)
        ├─ User logs in with Temp Password → forced to "Create New Password" page (displays Name & Email)
        └─ User sets New Password + Confirm → `mustChangePassword` = false, ALL sessions purged, redirect to Login

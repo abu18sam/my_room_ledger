@@ -102,6 +102,7 @@ Triggered when request payload (`req.body`), URL parameters (`req.params`), or q
 | `PENDING_SUPPLIER_BILLS_EXIST` | `409` | Conflict | Attempted to switch building power supplier while open (`UNPAID` / `OVERDUE`) master bills exist for current supplier. Returns `metadata.pendingBills[]`. |
 | `RESOURCE_ALREADY_PAID` | `409` | Business | Attempted to mark an already `PAID` supplier master bill as `PAID`. |
 | `LEDGER_ALREADY_EXISTS` | `409` | Business | Billing cycle generation attempted for a room that already has a ledger for that cycle. |
+| `NON_LAST_TRANSACTION_UPDATE_RESTRICTED` | `409` | Conflict | Landlord attempted to update a payment transaction that is not the chronologically latest record for that ledger. |
 | `TOO_MANY_REQUESTS` | `429` | Security | Rate limit exceeded (e.g. >5 failed logins from same IP in 15 minutes). |
 | `INTERNAL_SERVER_ERROR` | `500` | System | Unhandled server exception. Generic message returned; stack trace logged internally. |
 

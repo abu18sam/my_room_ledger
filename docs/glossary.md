@@ -76,6 +76,10 @@
 | **Action Type** | Standardized SCREAMING_SNAKE_CASE string identifying a specific auditable action (e.g. `FORCE_LOGOUT_USER`, `SAVE_PAYMENT_TRANSACTION`, `SWITCH_POWER_SUPPLIER`). Indexed in `docs/audit-logging.md`. | BR-16.4, FR-94, AC-89.5, docs/audit-logging.md |
 | **Force Logout** | Administrative action allowing a Super Admin or Admin to forcefully invalidate active user sessions (`UserSession` records purged from DB) based on role hierarchy. | BR-01.5, FR-89–91, AC-89.1–4 |
 | **Role Hierarchy Violation** | Authorization block (`HTTP 403 FORBIDDEN`, error code: `ROLE_HIERARCHY_VIOLATION`) triggered when an Admin attempts to execute force-logout or administrative operations on a Super Admin or fellow Admin user. | BR-01.5, FR-91, AC-89.3, docs/error-handling.md |
+| **RBAC Matrix** | Centralized single-source-of-truth document (`docs/rbac-matrix.md`) mapping CRUD capabilities across 4 roles (`SUPER_ADMIN`, `ADMIN`, `LANDLORD`, `TENANT`) for all database entities and special operational restrictions. | BR-01.1, FR-97, AC-97.4, docs/rbac-matrix.md |
+| **Last Transaction Update Rule** | Domain rule allowing landlords to update (`PATCH`) ONLY the chronologically latest payment transaction for a ledger cycle (`recordedAt` max), automatically triggering parent ledger balance & status recalculation. | BR-14.7, FR-98, AC-97.1, docs/rbac-matrix.md |
+| **Non-Last Transaction Lock** | Security restriction (`HTTP 409 NON_LAST_TRANSACTION_UPDATE_RESTRICTED`) blocking edits to older (non-latest) payment transaction records to maintain financial ledger history integrity. | BR-14.7, FR-99, AC-97.2, docs/error-handling.md |
+
 
 
 

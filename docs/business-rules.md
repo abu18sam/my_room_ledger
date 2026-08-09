@@ -18,12 +18,15 @@ This document serves as the **single authoritative source of truth for all domai
 
 ### BR-01: Multi-Tier Role Hierarchy & Data Isolation Governance
 
-#### BR-01.1 — Role Scope Definitions
+#### BR-01.1 — Role Scope Definitions & Centralized RBAC Matrix
+> **Centralized Authority**: Full CRUD permissions per entity across all system roles are formally defined in the centralized [`docs/rbac-matrix.md`](rbac-matrix.md) document.
+
 - **SUPER_ADMIN** (Highest System Authority):
   - Full system-level CRUD access across all entities (Buildings, Rooms, Tenants, Landlords, Billing, Operating Expenses, Complaints, Global Analytics, Audit Logs).
   - Can Create, Update, Deactivate, and Delete `ADMIN` and `LANDLORD` accounts.
   - Can manage global system configurations and view system-wide logs.
   - *Creation Constraint*: A `SUPER_ADMIN` user can **ONLY** be created by another existing `SUPER_ADMIN`.
+  - *Operational Restrictions*: ❌ Cannot edit or delete `AuditLog` records, `TenancyHistory` logs, or `PaymentTransaction` records. View-only access for financial transaction logs.
 - **ADMIN** (Operational Management):
   - Administrative authority to onboard, update, and manage `LANDLORD` and `TENANT` accounts.
   - Access to platform-wide Revenue Dashboard, aggregated landlord performance metrics (Level 3), and system-wide reports.
@@ -262,9 +265,9 @@ This document serves as the **single authoritative source of truth for all domai
 ### BR-14: Partial Payment Tracking & Multi-Cycle Balance Accumulation
 
 #### BR-14.1 — Payment Transaction Audit Log
-- Each payment event (partial or full) against a `RoomRentLedger` or `ElectricityLedger` is recorded as an immutable `PaymentTransaction` row.
+- Each payment event (partial or full) against a `RoomRentLedger` or `ElectricityLedger` is recorded as a `PaymentTransaction` row.
 - The ledger stores `amountPaid` = running sum of all associated `PaymentTransaction.amountPaid` values for that ledger.
-- **Immutability Invariant**: Once recorded, a `PaymentTransaction` row is **never mutated or deleted**. Corrections require a compensating transaction (future enhancement).
+- **Chronological Sequence**: Payment transactions are ordered by creation timestamp (`recordedAt`). Older transactions are locked and immutable. Corrections to the latest entry follow BR-14.7.
 
 #### BR-14.2 — Ledger Status State Machine
 ```
@@ -305,6 +308,16 @@ OVERDUE
 - When a landlord settles a `SupplierMasterBill`, they record: `status = PAID` and an optional `paidDate` (defaults to server UTC timestamp if omitted).
 - **No partial payments** are supported for supplier master bills in this phase. The bill is either `UNPAID`, `OVERDUE`, or `PAID`.
 - A `SupplierMasterBill` transitions to `OVERDUE` when `currentDate > SupplierMasterBill.dueDate` and status is `UNPAID`.
+
+#### BR-14.7 — Landlord "Last Transaction Only" Update Rule
+- A landlord can update a payment transaction (`PATCH /api/v1/ledgers/payments/{transactionId}`) **ONLY IF** that transaction is the **chronologically latest record** (highest `recordedAt` timestamp) for its parent ledger.
+- **Modifiable Fields**: `amountPaid`, `paymentDate`, `paymentMethod`, `transactionReference`, `notes`.
+- **Automatic Recalculation**: Updating the latest transaction automatically recalculates the parent ledger's `amountPaid` sum (`SUM(PaymentTransaction.amountPaid)`) and updates the parent ledger status (`UNPAID` / `PARTIALLY_PAID` / `PAID` / `OVERDUE`).
+- **Prior Transaction Lock**: Landlords **CANNOT update any previous (non-latest) transactions**. Attempting to update a non-latest transaction is strictly rejected with `HTTP 409 NON_LAST_TRANSACTION_UPDATE_RESTRICTED`. UI hides/disables edit controls for non-latest records.
+
+#### BR-14.8 — Super Admin & Admin Payment Transaction Read-Only Lock
+- Super Admin and Admin roles are granted **READ-ONLY** visibility over landlord payment transaction history.
+- Super Admin and Admin users **CANNOT insert, update, or delete** payment transaction records under any circumstances (`HTTP 403 FORBIDDEN`). All payment transactions are maintained exclusively by landlords.
 
 ---
 

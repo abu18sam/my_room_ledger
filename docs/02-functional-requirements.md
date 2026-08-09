@@ -311,6 +311,17 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 ---
 
+### 3.14 Centralized RBAC Enforcement & Payment Transaction Update Rules
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-97** | User roles and permissions across all system resources and database entities MUST strictly conform to the permissions matrix defined in [`docs/rbac-matrix.md`](rbac-matrix.md). | BR-01.1, docs/rbac-matrix.md |
+| **FR-98** | A **LANDLORD** can update a payment transaction (`PATCH /api/v1/ledgers/payments/{transactionId}`) ONLY IF it is the chronologically latest transaction for its parent ledger. Updating the latest transaction automatically recalculates the parent ledger's `amountPaid` sum and status (`UNPAID` / `PARTIALLY_PAID` / `PAID` / `OVERDUE`) and emits an `AuditLog` entry (`actionType = "UPDATE_PAYMENT_TRANSACTION"`). | BR-14.7, docs/audit-logging.md |
+| **FR-99** | Attempting to update any prior (non-latest) payment transaction MUST be rejected with `HTTP 409 NON_LAST_TRANSACTION_UPDATE_RESTRICTED`. Frontend UI MUST hide or disable update controls for non-latest records. | BR-14.7 |
+| **FR-100** | **SUPER_ADMIN** and **ADMIN** roles possess READ-ONLY access to landlord payment transactions. Attempting to insert, edit, or delete payment transactions by Super Admin or Admin MUST be rejected with `HTTP 403 FORBIDDEN`. | BR-14.8, docs/rbac-matrix.md |
+
+---
+
 ## 4. Traceability Map (FR → AC Group)
 
 | FR IDs | AC Group | Domain |
@@ -334,6 +345,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | FR-78 – FR-81 | AC-78 | Input Validation & System Rules |
 | FR-82 – FR-88 | AC-82 | Backend Error Handling Standards & Universal Envelopes |
 | FR-89 – FR-96 | AC-89 | Session Force-Logout & Centralized Audit Trail |
+| FR-97 – FR-100 | AC-97 | RBAC Matrix & Payment Transaction Update Rules |
 
 ---
 

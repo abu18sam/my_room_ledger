@@ -730,6 +730,54 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
 - **Purpose**: Retrieve all payment transactions for an Electricity Ledger.
 - **Response (200 OK)**: *(Same shape as Room Rent GET payments response above.)*
 
+### `PATCH /api/v1/ledgers/payments/{transactionId}`
+- **Access**: `LANDLORD` (Own Buildings Only)
+- **Restriction**: `SUPER_ADMIN` & `ADMIN` are strictly read-only (`HTTP 403 FORBIDDEN`). Allowed ONLY if `transactionId` is the chronologically latest transaction for its parent ledger (`recordedAt` max).
+- **Purpose**: Update fields of the latest payment transaction to correct entry mistakes. Automatically recalculates parent ledger `amountPaid` and `status`.
+- **Request Body**:
+  ```json
+  {
+    "amountPaid": 1200.00,
+    "paymentDate": "2026-08-03T10:30:00Z",
+    "paymentMethod": "UPI",
+    "transactionReference": "UPI/329482910_CORRECTED",
+    "notes": "Corrected payment amount from ₹1000 to ₹1200"
+  }
+  ```
+- **Response (200 OK - Successful Update & Balance Recalculation)**:
+  ```json
+  {
+    "transactionId": "t7010000-0000-4000-8000-000000000701",
+    "ledgerId": "rl301000-0000-4000-8000-000000000301",
+    "amountPaid": 1200.00,
+    "paymentDate": "2026-08-03T10:30:00Z",
+    "paymentMethod": "UPI",
+    "transactionReference": "UPI/329482910_CORRECTED",
+    "notes": "Corrected payment amount from ₹1000 to ₹1200",
+    "recalculatedLedger": {
+      "ledgerId": "rl301000-0000-4000-8000-000000000301",
+      "totalAmount": 2500.00,
+      "amountPaid": 1200.00,
+      "remainingBalance": 1300.00,
+      "status": "PARTIALLY_PAID"
+    },
+    "updatedAt": "2026-08-09T15:00:00Z"
+  }
+  ```
+- **Error Response (409 Conflict - Non-Latest Transaction Update Attempt)**:
+  ```json
+  {
+    "statusCode": 409,
+    "error": "NON_LAST_TRANSACTION_UPDATE_RESTRICTED",
+    "message": "Cannot update payment transaction. Only the chronologically latest payment transaction for a ledger can be modified.",
+    "metadata": {
+      "attemptedTransactionId": "t7000000-0000-4000-8000-000000000700",
+      "latestTransactionId": "t7010000-0000-4000-8000-000000000701",
+      "ledgerId": "rl301000-0000-4000-8000-000000000301"
+    }
+  }
+  ```
+
 ### `GET /api/v1/rooms/{roomId}/outstanding-balance`
 - **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN`
 - **Purpose**: Returns total outstanding balance for a room: `SUM(amount − amountPaid)` across all non-`PAID` rent and electricity ledger entries, with per-cycle breakdown.

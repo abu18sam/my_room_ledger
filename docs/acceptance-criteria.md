@@ -368,6 +368,19 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 
 ---
 
+## AC-97 — RBAC Matrix & Payment Transaction Update Rules
+
+**Requirements:** FR-97, FR-98, FR-99, FR-100
+
+| ID | Criterion |
+|----|---|
+| **AC-97.1** | `PATCH /api/v1/ledgers/payments/{transactionId}` executed by a `LANDLORD` on the chronologically latest payment transaction for their room's ledger succeeds (HTTP 200); updates transaction fields (`amountPaid`, `paymentDate`, `paymentMethod`, `transactionReference`, `notes`), automatically recalculates parent ledger `amountPaid` and `status`, and creates an `AuditLog` entry (`actionType = "UPDATE_PAYMENT_TRANSACTION"`). |
+| **AC-97.2** | `PATCH /api/v1/ledgers/payments/{transactionId}` executed by a `LANDLORD` on a non-latest (older) payment transaction for a ledger is rejected with `HTTP 409 NON_LAST_TRANSACTION_UPDATE_RESTRICTED`; parent ledger balance and transaction record remain completely unchanged. |
+| **AC-97.3** | Any attempt by a `SUPER_ADMIN` or `ADMIN` to invoke payment transaction creation (`POST`), update (`PATCH`), or deletion (`DELETE`) is rejected with `HTTP 403 FORBIDDEN`. |
+| **AC-97.4** | System authorization behavior strictly enforces the entity permissions matrix defined in `docs/rbac-matrix.md`; unauthorized cross-role or cross-tenant data mutation attempts return `HTTP 403 FORBIDDEN`. |
+
+---
+
 ## Gate
 
 **Awaiting user confirmation.**

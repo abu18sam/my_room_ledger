@@ -95,6 +95,7 @@ Triggered when request payload (`req.body`), URL parameters (`req.params`), or q
 | `INVALID_TOKEN` | `401` | Auth | JWT access token or refresh token is malformed, revoked, or tampered with. |
 | `FORBIDDEN` | `403` | Auth | User is authenticated but lacks the required role or ownership permissions for the target resource. |
 | `MUST_CHANGE_PASSWORD` | `403` | Auth | Account is flagged `mustChangePassword = true`. User must change password before accessing endpoints. |
+| `ROLE_HIERARCHY_VIOLATION` | `403` | Auth | Lower role user attempted an administrative or session force-logout operation on an equal or higher role account. |
 | `NOT_FOUND` | `404` | Resource | Target resource ID does not exist in the database. |
 | `DUPLICATE_ENTRY` | `409` | Conflict | Resource creation failed due to unique constraint violation (e.g. duplicate email, phone, or bill serial number). |
 | `COMPANY_IN_USE` | `409` | Conflict | Attempted to delete or deactivate a `PowerSupplyCompany` linked to 1 or more buildings. Returns `metadata.affectedBuildings[]`. |

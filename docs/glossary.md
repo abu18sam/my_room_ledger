@@ -71,6 +71,12 @@
 | **Error Code** | Machine-readable SCREAMING_SNAKE_CASE string uniquely identifying an error condition (e.g. `COMPANY_IN_USE`, `PENDING_SUPPLIER_BILLS_EXIST`). Enables precise client error routing. | BR-15.1, FR-82, AC-82.1, docs/error-handling.md |
 | **Actionable Error Message** | User-facing error message describing what failed AND what actionable step to take next. Internal stack traces, raw database error strings, and SQL queries are strictly hidden. | BR-15.3, FR-87, AC-82.11 |
 | **UUID Primary Key Strategy** | The mandatory system-wide identifier policy replacing sequential integer auto-increment keys with 128-bit RFC 4122 non-sequential UUID strings (`gen_random_uuid()` / `@default(uuid()) @db.Uuid`) across all 22 database entities. Prevents resource enumeration and IDOR attacks. | BR-10.4, FR-88, AC-82.12 |
+| **AuditLog** | An immutable, insert-only database table (`audit_logs`) recording every state-changing API operation and security event with acting user, target entity, timestamp, IP, User-Agent, and metadata. | BR-16.1, FR-93, AC-89.5, docs/audit-logging.md |
+| **Audit Category** | High-level grouping of audit log action types (`SESSION`, `AUTH`, `USER_MANAGEMENT`, `ASSET_MANAGEMENT`, `TENANT_MANAGEMENT`, `FINANCIAL`, `SYSTEM`). | BR-16.1, FR-94, docs/audit-logging.md |
+| **Action Type** | Standardized SCREAMING_SNAKE_CASE string identifying a specific auditable action (e.g. `FORCE_LOGOUT_USER`, `SAVE_PAYMENT_TRANSACTION`, `SWITCH_POWER_SUPPLIER`). Indexed in `docs/audit-logging.md`. | BR-16.4, FR-94, AC-89.5, docs/audit-logging.md |
+| **Force Logout** | Administrative action allowing a Super Admin or Admin to forcefully invalidate active user sessions (`UserSession` records purged from DB) based on role hierarchy. | BR-01.5, FR-89–91, AC-89.1–4 |
+| **Role Hierarchy Violation** | Authorization block (`HTTP 403 FORBIDDEN`, error code: `ROLE_HIERARCHY_VIOLATION`) triggered when an Admin attempts to execute force-logout or administrative operations on a Super Admin or fellow Admin user. | BR-01.5, FR-91, AC-89.3, docs/error-handling.md |
+
 
 
 

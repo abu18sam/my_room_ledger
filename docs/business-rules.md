@@ -43,6 +43,12 @@ This document serves as the **single authoritative source of truth for all domai
 - **Backend as Source of Truth**: Authorization is enforced on the backend via NestJS `@Roles(...)` decorator + `JwtAuthGuard` + `RolesGuard`.
 - **Row-Level Data Isolation**: Database queries enforce row-level tenant/landlord ownership filtering via Prisma ORM (`where: { landlordId: req.user.id }` for Landlords; `where: { userId: req.user.id }` for Tenants).
 - **Frontend UI Permission Rendering**: Frontend UI components, navigation menus, and buttons dynamically render based on JWT role claims for clean UX, but the frontend NEVER acts as a security boundary.
+
+#### BR-01.5 — Hierarchical Session Force-Logout Invariant
+- **`SUPER_ADMIN`**: Can forcefully terminate all active sessions of `ADMIN`, `LANDLORD`, and `TENANT` users.
+- **`ADMIN`**: Can forcefully terminate all active sessions of `LANDLORD` and `TENANT` users.
+- **Role Hierarchy Enforcement**: An `ADMIN` user is **strictly blocked** from forcefully terminating sessions of a `SUPER_ADMIN` or another `ADMIN` account. Any attempt is rejected with `HTTP 403 FORBIDDEN` (error code: `ROLE_HIERARCHY_VIOLATION`).
+- **Landlords & Tenants**: Can only view and terminate their own individual device sessions (`UserSession` records).
 - **Cross-Entity Lockdown**: Cross-role or cross-tenant data leakage is strictly prevented. Any unauthorized access attempt returns `HTTP 403 FORBIDDEN`.
 
 ---
@@ -324,6 +330,27 @@ OVERDUE
 
 #### BR-15.5 — HTTP Status Code Uniformity
 - Backend endpoints must adhere strictly to the HTTP status mapping matrix defined in `docs/error-handling.md §5` (`200 OK`, `201 Created`, `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `409 Conflict`, `429 Too Many Requests`, `500 Internal Server Error`).
+
+---
+
+### BR-16: Audit Logging & Immutability Governance
+
+#### BR-16.1 — Mandatory Real-Time Audit Trail
+- All state-changing API actions (`POST`, `PATCH`, `PUT`, `DELETE`) and security/session events (logins, logouts, force logouts, password resets) MUST emit an `AuditLog` entry in the database.
+- The `AuditLog` entry MUST record: `actionType`, `category`, `performedByUserId`, `performedByUserRole`, `targetEntityId`, `targetEntityType`, client `ipAddress`, client `userAgent`, and structured JSON `metadata`.
+
+#### BR-16.2 — Absolute Immutability Invariant
+- The `AuditLog` database table (`audit_logs`) is **strictly insert-only**.
+- No application controller, background service, or database user possesses permissions to execute `UPDATE` or `DELETE` queries on `audit_logs`. Any modification attempt is rejected.
+
+#### BR-16.3 — Audit Metadata Standard
+- Contextual details (e.g. before/after states, updated fields, payment transaction amounts, force logout target user details) MUST be stored in the structured `metadata` JsonB column.
+- Textual log `message` strings are never used for machine-readable audit context.
+
+#### BR-16.4 — Centralized Audit Registry Synchronization
+- All recognized audit `actionType` strings and categories are formally indexed in [`docs/audit-logging.md`](file:///Users/abdulsamad/Desktop/Projects/my_room_ledger/docs/audit-logging.md).
+- Whenever a new feature or state-changing action is added to the system, `docs/audit-logging.md` MUST be updated first with its `actionType` specification before backend code implementation.
+
 
 
 

@@ -209,6 +209,8 @@ model User {
   documentsUploaded  DocumentMetadata[] @relation("UploadedDocuments")
   complaints         Complaint[] @relation("TenantComplaints")
   resetRequests      PasswordResetRequest[] @relation("UserResetRequests")
+  sessions           UserSession[]
+  auditLogsPerformed AuditLog[]  @relation("AuditLogsPerformed")
 
   @@map("users")
 }
@@ -588,5 +590,46 @@ model Complaint {
   @@index([tenantId])
   @@index([status])
   @@map("complaints")
+}
+
+model UserSession {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  tokenHash    String   @unique @map("token_hash") @db.VarChar(255)
+  deviceName   String?  @map("device_name") @db.VarChar(150)
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  userAgent    String?  @map("user_agent") @db.Text
+  expiresAt    DateTime @map("expires_at")
+  lastUsedAt   DateTime @default(now()) @map("last_used_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+model AuditLog {
+  id                  String   @id @default(uuid()) @db.Uuid
+  actionType          String   @map("action_type") @db.VarChar(100)
+  category            String   @db.VarChar(50)
+  performedByUserId   String   @map("performed_by_user_id") @db.Uuid
+  performedByUserRole UserRole @map("performed_by_user_role")
+  targetEntityId      String?  @map("target_entity_id") @db.VarChar(100)
+  targetEntityType    String?  @map("target_entity_type") @db.VarChar(50)
+  ipAddress           String?  @map("ip_address") @db.VarChar(45)
+  userAgent           String?  @map("user_agent") @db.Text
+  metadata            Json?    @db.JsonB
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  performedByUser     User     @relation("AuditLogsPerformed", fields: [performedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([actionType])
+  @@index([category])
+  @@index([performedByUserId])
+  @@index([targetEntityId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 ```

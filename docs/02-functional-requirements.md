@@ -296,6 +296,21 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 ---
 
+### 3.13 Session Management & Centralized Audit Trail Standards
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-89** | A **SUPER_ADMIN** can forcefully terminate all active multi-device sessions of any `ADMIN`, `LANDLORD`, or `TENANT` user account (`POST /api/v1/sessions/force-logout/user/{targetUserId}`). | BR-01.5 |
+| **FR-90** | A **SUPER_ADMIN** can forcefully terminate all active multi-device sessions system-wide for an entire target role scope (`POST /api/v1/sessions/force-logout/role/{targetRole}`). | BR-01.5 |
+| **FR-91** | An **ADMIN** can forcefully terminate all active multi-device sessions of any `LANDLORD` or `TENANT` account. Attempting to force-logout a `SUPER_ADMIN` or another `ADMIN` MUST be rejected with `HTTP 403 FORBIDDEN` (error: `ROLE_HIERARCHY_VIOLATION`). | BR-01.5 |
+| **FR-92** | Forcefully terminating user sessions immediately purges all corresponding `UserSession` records from the database and revokes associated refresh tokens. | BR-01.5, BR-10.3 |
+| **FR-93** | The backend system MUST automatically record an immutable `AuditLog` entry in the database for every state-changing API operation (`POST`, `PATCH`, `PUT`, `DELETE`) and security/session event. | BR-16.1 |
+| **FR-94** | `SUPER_ADMIN` and `ADMIN` roles can query, search, and paginate system audit logs (`GET /api/v1/admin/audit-logs`) filtered by `actionType`, `category`, `performedByUserId`, `targetEntityId`, `targetEntityType`, and date range. | BR-16.1 |
+| **FR-95** | `AuditLog` database records are strictly insert-only and read-only. No API endpoint or database operation exists to modify (`UPDATE`) or erase (`DELETE`) audit log entries. | BR-16.2 |
+| **FR-96** | Every force-logout event MUST create an `AuditLog` entry with `actionType = "FORCE_LOGOUT_USER"` or `"FORCE_LOGOUT_ROLE"`, recording the acting user, target user/role, and reason notes in `metadata`. | BR-16.1, docs/audit-logging.md |
+
+---
+
 ## 4. Traceability Map (FR → AC Group)
 
 | FR IDs | AC Group | Domain |
@@ -318,6 +333,7 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | FR-73 – FR-77 | AC-73 | Complaints & Maintenance |
 | FR-78 – FR-81 | AC-78 | Input Validation & System Rules |
 | FR-82 – FR-88 | AC-82 | Backend Error Handling Standards & Universal Envelopes |
+| FR-89 – FR-96 | AC-89 | Session Force-Logout & Centralized Audit Trail |
 
 ---
 

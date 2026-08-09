@@ -352,6 +352,22 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 
 ---
 
+## AC-89 — Session Force-Logout & Centralized Audit Trail
+
+**Requirements:** FR-89, FR-90, FR-91, FR-92, FR-93, FR-94, FR-95, FR-96
+
+| ID | Criterion |
+|----|---|
+| **AC-89.1** | `POST /api/v1/sessions/force-logout/user/{targetUserId}` executed by a `SUPER_ADMIN` on an Admin, Landlord, or Tenant account returns HTTP 200 `OK`, purges all active `UserSession` records for that user, and creates an `AuditLog` entry with `actionType = "FORCE_LOGOUT_USER"`. |
+| **AC-89.2** | `POST /api/v1/sessions/force-logout/user/{targetUserId}` executed by an `ADMIN` on a Landlord or Tenant account succeeds (HTTP 200) and creates an `AuditLog` entry. |
+| **AC-89.3** | `POST /api/v1/sessions/force-logout/user/{targetUserId}` executed by an `ADMIN` targeting a `SUPER_ADMIN` or another `ADMIN` account is rejected with `HTTP 403 FORBIDDEN` (error code: `ROLE_HIERARCHY_VIOLATION`). |
+| **AC-89.4** | `POST /api/v1/sessions/force-logout/role/{targetRole}` executed by a `SUPER_ADMIN` forcefully terminates all active sessions for all users of that role scope and creates an `AuditLog` entry (`actionType = "FORCE_LOGOUT_ROLE"`). |
+| **AC-89.5** | Every state-changing API call (`POST`, `PATCH`, `PUT`, `DELETE`) automatically creates an `AuditLog` row with non-null `actionType`, `category`, `performedByUserId`, `performedByUserRole`, `ipAddress`, `userAgent`, and `metadata`. |
+| **AC-89.6** | `GET /api/v1/admin/audit-logs` executed by `SUPER_ADMIN` or `ADMIN` returns paginated audit records and supports filtering by `actionType`, `category`, `performedByUserId`, `targetEntityId`, `targetEntityType`, and date range. |
+| **AC-89.7** | Any HTTP request or database query attempting to `UPDATE` or `DELETE` records in `audit_logs` is rejected with an error — audit trail remains immutable. |
+
+---
+
 ## Gate
 
 **Awaiting user confirmation.**

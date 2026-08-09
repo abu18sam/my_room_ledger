@@ -778,3 +778,110 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
     "description": "Continuous water leakage causing floor dampness since morning."
   }
   ```
+
+---
+
+## 8. Session Management & Centralized Audit Log Endpoints
+
+### `POST /api/v1/sessions/force-logout/user/{targetUserId}`
+- **Access**: `SUPER_ADMIN` (All roles) | `ADMIN` (Landlords & Tenants Only)
+- **Purpose**: Forcefully terminate all active multi-device sessions for a specified target user account.
+- **Request Body**:
+  ```json
+  {
+    "reason": "Security compromise flagged by system admin"
+  }
+  ```
+- **Response (200 OK - Successful Termination)**:
+  ```json
+  {
+    "message": "All active sessions for user 'Rajesh Kumar' forcefully terminated.",
+    "targetUserId": "u1000000-0000-4000-8000-000000000010",
+    "targetUserRole": "LANDLORD",
+    "terminatedSessionCount": 3,
+    "auditLogId": "a9010000-0000-4000-8000-000000000901"
+  }
+  ```
+- **Error Response (403 Forbidden - Role Hierarchy Violation)**:
+  ```json
+  {
+    "statusCode": 403,
+    "error": "ROLE_HIERARCHY_VIOLATION",
+    "message": "Permission denied. Admins cannot forcefully terminate sessions of a Super Admin or fellow Admin user account.",
+    "metadata": {
+      "actingUserRole": "ADMIN",
+      "targetUserRole": "SUPER_ADMIN",
+      "targetUserId": "u0000000-0000-4000-8000-000000000001"
+    }
+  }
+  ```
+
+### `POST /api/v1/sessions/force-logout/role/{targetRole}`
+- **Access**: `SUPER_ADMIN` Only
+- **Purpose**: Bulk force-logout all active user sessions system-wide for an entire role scope (`ADMIN`, `LANDLORD`, or `TENANT`).
+- **Request Body**:
+  ```json
+  {
+    "reason": "Platform security compliance patch enforcement"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "message": "Bulk force logout executed. All active sessions for role 'LANDLORD' purged.",
+    "targetRole": "LANDLORD",
+    "affectedUserCount": 42,
+    "terminatedSessionCount": 87,
+    "auditLogId": "a9020000-0000-4000-8000-000000000902"
+  }
+  ```
+
+### `GET /api/v1/admin/audit-logs`
+- **Access**: `SUPER_ADMIN` | `ADMIN`
+- **Purpose**: Search, filter, and paginate immutable system audit logs.
+- **Query Parameters**:
+  - `page`: default `1`
+  - `limit`: default `20` (max `100`)
+  - `category`: optional (`SESSION` \| `AUTH` \| `USER_MANAGEMENT` \| `ASSET_MANAGEMENT` \| `TENANT_MANAGEMENT` \| `FINANCIAL` \| `SYSTEM`)
+  - `actionType`: optional (e.g. `FORCE_LOGOUT_USER`, `SAVE_PAYMENT_TRANSACTION`)
+  - `performedByUserId`: optional UUID
+  - `targetEntityId`: optional UUID/String
+  - `startDate`: optional ISO 8601
+  - `endDate`: optional ISO 8601
+- **Response (200 OK)**:
+  ```json
+  {
+    "data": [
+      {
+        "id": "a9010000-0000-4000-8000-000000000901",
+        "actionType": "FORCE_LOGOUT_USER",
+        "category": "SESSION",
+        "performedBy": {
+          "userId": "a2000000-0000-4000-8000-000000000002",
+          "fullName": "Vikram Singh",
+          "role": "ADMIN"
+        },
+        "targetEntity": {
+          "id": "u1000000-0000-4000-8000-000000000010",
+          "type": "USER"
+        },
+        "ipAddress": "103.21.124.8",
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "metadata": {
+          "targetUserRole": "LANDLORD",
+          "targetUserName": "Rajesh Kumar",
+          "terminatedSessionCount": 3,
+          "reason": "Security compromise flagged by system admin"
+        },
+        "createdAt": "2026-08-09T14:30:00Z"
+      }
+    ],
+    "meta": {
+      "currentPage": 1,
+      "limit": 20,
+      "totalRecords": 142,
+      "totalPages": 8
+    }
+  }
+  ```
+

@@ -52,7 +52,7 @@ All validation failures (`ZodValidationPipe`) return field-level details:
 
 | HTTP Code | Error Code | Trigger | Response Metadata |
 |---|---|---|---|
-| `400` | `VALIDATION_ERROR` | Request body, params, or query fail Zod schema | `details[]` array |
+| `400` | `VALIDATION_ERROR` | Request body, params, or query fail Zod schema | `fieldErrors[]` array |
 | `400` | `PAYMENT_EXCEEDS_BALANCE` | Recorded payment exceeds remaining due | `remainingBalance`, `attemptedPayment` |
 | `401` | `UNAUTHORIZED` | Missing, invalid, or expired JWT access token | `{}` |
 | `401` | `INVALID_CREDENTIALS` | Incorrect email/phone or password on login | `{}` |
@@ -64,8 +64,33 @@ All validation failures (`ZodValidationPipe`) return field-level details:
 | `409` | `DUPLICATE_ENTRY` | Unique constraint violation (email, phone, serial) | `field` |
 | `409` | `COMPANY_IN_USE` | Deleting power company linked to ≥1 buildings | `affectedBuildings[]` |
 | `409` | `PENDING_SUPPLIER_BILLS_EXIST` | Switching supplier with open master bills | `pendingBills[]` |
+| `413` | `MAX_FILE_SIZE_EXCEEDED` | File size exceeds 5 MB ceiling ($5,242,880\text{ bytes}$) | `maxAllowedBytes` |
 | `429` | `TOO_MANY_REQUESTS` | Rate limit exceeded (e.g. 5 failed logins / 15m) | `{}` |
 | `500` | `INTERNAL_SERVER_ERROR` | Unhandled server exception (sanitized) | `{}` |
+
+#### Standard Backend Validation Error Envelope (`HTTP 400 VALIDATION_ERROR`)
+Returned whenever a client request payload fails server-side `ZodValidationPipe` schema or field constraints (`BR-19.5`, `FR-142`):
+```json
+{
+  "statusCode": 400,
+  "error": "VALIDATION_ERROR",
+  "message": "Validation failed for 2 field(s). Please correct errors and resubmit.",
+  "fieldErrors": [
+    {
+      "field": "phoneNumber",
+      "message": "Invalid phone number format for country code +91. Expected 10 digits starting with 6-9.",
+      "errorCode": "INVALID_PHONE_FORMAT"
+    },
+    {
+      "field": "password",
+      "message": "Password must be at least 8 characters long and contain at least one uppercase letter and one number.",
+      "errorCode": "WEAK_PASSWORD"
+    }
+  ],
+  "timestamp": "2026-08-16T23:35:00Z",
+  "path": "/api/v1/auth/register"
+}
+```
 
 ### 0.6 — Central Error Registry Reference
 > See [`docs/error-handling.md`](file:///Users/abdulsamad/Desktop/Projects/my_room_ledger/docs/error-handling.md) for complete documentation of all 21 error codes, metadata schemas, and status mappings.
@@ -969,18 +994,53 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
 
 ## 5. Security-First Encrypted File Storage Endpoints
 
-### `POST /api/v1/files/upload`
+### `POST /api/v1/documents/presigned-upload-url`
 - **Access**: `LANDLORD` | `ADMIN` | `SUPER_ADMIN` | `TENANT` (Own Govt ID / Receipts)
-- **Request**: Multipart Form Data (`file`: PDF/Image, `category`: `GOVT_ID` | `SUPPLIER_BILL` | `RECEIPT`)
-- **Backend Behavior**: Encrypts file buffer via AES-256 GCM before uploading to private Cloudflare R2 bucket.
-- **Response (201 Created)**:
+- **Purpose**: Request a time-bound (15-minute TTL) presigned `PutObject` URL to transfer files directly to Cloudflare R2. Enforces global **5 MB ceiling ($5,242,880\text{ bytes}$)** and MIME allowlist (`image/jpeg`, `image/png`, `image/webp`, `application/pdf`).
+- **Request Body**:
+  ```json
+  {
+    "fileName": "upcl_july_bill.pdf",
+    "mimeType": "application/pdf",
+    "fileSizeBytes": 1048576,
+    "category": "SUPPLIER_BILL"
+  }
+  ```
+- **Response (201 Created - Valid Size $\le 5\text{ MB}$)**:
+  ```json
+  {
+    "documentId": "d5010000-0000-4000-8000-000000000501",
+    "presignedUploadUrl": "https://r2.myroomledger.com/upload/upcl_july_bill.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=900...",
+    "expiresInSeconds": 900,
+    "maxAllowedSizeBytes": 5242880,
+    "status": "PENDING_UPLOAD"
+  }
+  ```
+- **Error Response (413 Payload Too Large - Size $> 5\text{ MB}$)**:
+  ```json
+  {
+    "statusCode": 413,
+    "error": "MAX_FILE_SIZE_EXCEEDED",
+    "message": "File size exceeds maximum allowed limit of 5 MB (5,242,880 bytes). Please upload a smaller file.",
+    "field": "fileSizeBytes",
+    "maxAllowedBytes": 5242880,
+    "timestamp": "2026-08-16T23:30:00Z",
+    "path": "/api/v1/documents/presigned-upload-url"
+  }
+  ```
+
+### `POST /api/v1/documents/{documentId}/confirm-upload`
+- **Access**: Authorized Role Scope Check
+- **Purpose**: Confirm completion of direct R2 transfer. Backend calculates SHA-256 object hash, checks for duplicates, and sets document status to `ACTIVE`.
+- **Response (200 OK)**:
   ```json
   {
     "documentId": "d5010000-0000-4000-8000-000000000501",
     "originalFileName": "upcl_july_bill.pdf",
-    "mimeType": "application/pdf",
-    "fileSizeBytes": 1048576,
-    "uploadedAt": "2026-07-27T10:30:00Z"
+    "sha256Hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "isDeduplicated": false,
+    "status": "ACTIVE",
+    "confirmedAt": "2026-08-16T23:32:00Z"
   }
   ```
 

@@ -434,6 +434,41 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 
 ---
 
+### 3.9 Global File-Upload Policy & Storage Lifecycle Governance
+
+#### 3.9.1 Size Enforcement & Direct Upload Rules
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-131** | All document upload features across the application (utility bills, receipts, tenant IDs, complaint photos, user avatars, reports) MUST enforce a strict **maximum file size ceiling of 5 MB ($5,242,880\text{ bytes}$)** per file and MIME allowlist (`image/jpeg`, `image/png`, `image/webp`, `application/pdf`). | BR-18.1, docs/file-storage-and-upload-policy.md |
+| **FR-132** | The backend MUST act as the authoritative gatekeeper. Any file upload metadata or payload exceeding 5 MB MUST be rejected with `HTTP 413 PAYLOAD_TOO_LARGE` / `HTTP 400 BAD_REQUEST` (`error: "MAX_FILE_SIZE_EXCEEDED"`) returning a clear field-level error message. | BR-18.2, docs/file-storage-and-upload-policy.md |
+| **FR-133** | The client PWA MUST pre-validate file sizes and MIME types before sending requests, displaying field-level inline validation errors below file inputs if a file exceeds 5 MB. | BR-18.2, docs/file-storage-and-upload-policy.md |
+| **FR-134** | File uploads MUST use **Direct-to-R2 Presigned URLs** (`POST /api/v1/documents/presigned-upload-url`). The client transfers files directly to Cloudflare R2 object storage, bypassing API server memory and bandwidth proxying. | BR-18.3, docs/file-storage-and-upload-policy.md |
+
+#### 3.9.2 Cost Optimization & Security Invariants
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-135** | Storage cost optimization MUST incorporate client-side WebP image compression, SHA-256 content deduplication, Cloudflare R2 auto-tiering (Standard $\rightarrow$ Infrequent Access at 90 days), and 30-day soft-deleted file purge pipelines. | BR-18.4, docs/file-storage-and-upload-policy.md |
+| **FR-136** | Cost optimization mechanisms MUST NEVER weaken AES-256 GCM encryption at rest, 15-minute presigned URL access expiration, role-based access control, tenant privacy, or immutable audit logging (`AuditLog`). | BR-18.5, docs/file-storage-and-upload-policy.md |
+
+---
+
+### 3.10 Dual-Layer Validation Architecture & Defense-in-Depth Requirements
+
+#### 3.10.1 Responsibilities & Defense-in-Depth Rules
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-137** | The Frontend (FE PWA) MUST perform client-side pre-validation on all forms and user inputs (required fields, format regex, password rules, range checks, file sizes) before initiating network requests to provide instant UX feedback and prevent redundant server traffic. | BR-19.1 |
+| **FR-138** | The Backend (NestJS BE) MUST independently perform 100% of all required authentication, authorization/RBAC, schema validation, multi-tenant ownership, and business rule checks for every API request, acting as the sole authoritative security boundary. | BR-19.2 |
+| **FR-139** | The Backend MUST operate under a **Zero-Trust Client Principle**, treating all incoming payloads as untrusted and tampered until independently verified by NestJS validation pipes and guards, protecting against direct curl/Postman API invocations. | BR-19.2, BR-19.3 |
+| **FR-140** | Every incoming request MUST pass through an immutable 7-stage server execution chain: `ThrottlerGuard` $\rightarrow$ `SessionValidationGuard` $\rightarrow$ `JwtAuthGuard` $\rightarrow$ `RolesGuard` $\rightarrow$ `ResourceAccessGuard` $\rightarrow$ `ZodValidationPipe` $\rightarrow$ `DomainServiceInvariants`. | BR-19.4 |
+| **FR-141** | The Backend MUST enforce strict multi-tenant resource data ownership (`LandlordBuildingGuard`, `TenantRoomAccessGuard`), rejecting unauthorized cross-tenant resource access requests with `HTTP 403 FORBIDDEN`. | BR-19.2, BR-17.5 |
+| **FR-142** | Server-side validation failures MUST return standardized `HTTP 400 BAD_REQUEST` / `HTTP 422 UNPROCESSABLE_ENTITY` JSON envelopes with a `fieldErrors[]` array (`field`, `message`, `errorCode`), strictly hiding internal stack traces, DB exceptions, and SQL queries. | BR-19.5, BR-15.1 |
+
+---
+
 ## 5. Explicitly Out of Scope (Reaffirmed for Stage 02)
 
 - Automated online payment gateway (Razorpay / Stripe) — deferred to future phase

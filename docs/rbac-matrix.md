@@ -52,7 +52,7 @@
 | **Payment Transactions** | R (View Only) | R (View Only) | C / R / **L** (Latest Only) | R (Self View) | **Special Rule**: Landlord can update ONLY the latest payment transaction. |
 | **Supplier Master Bills** | C / R / U | C / R / U | C / R / U (Own) | — | Single lump-sum settlement (`PAID`); no partial payments. |
 | **Building Operating Expenses** | C / R / U / D | C / R / U / D | C / R / U / D (Own) | — | Landlord logs expenses for own buildings. |
-| **Document Metadata (Cloudflare R2)** | C / R / D | C / R / D | C / R / D (Own) | C / R (Own ID/Receipt) | Files encrypted AES-256 GCM; access via 15-min signed URLs. |
+| **Document Metadata (Cloudflare R2)** | C / R / D | C / R / D | C / R / D (Own) | C / R (Own ID/Receipt) | Enforces 5 MB ceiling (`HTTP 413`), direct presigned uploads, AES-256 GCM encryption, and 15-min signed URLs (`BR-18`, `docs/file-storage-and-upload-policy.md`). |
 | **Tenant Complaints** | R / U | R / U | R / U (Own Buildings) | C / R (Self) | Tenants log tickets; Landlords update resolution status/notes. |
 | **Password Reset Requests** | R / U | R / U | C (Self Request) | C (Self Request) | Admin approves email reset link or generates temp password. |
 | **Audit Logs (`AuditLog`)** | R (View Only) | R (View Only) | — | — | **Absolute Immutability**: Insert-Only across all roles (No U/D). |
@@ -84,3 +84,10 @@ To allow landlords to correct entry mistakes (e.g. typos in payment amount, date
 1. `SUPER_ADMIN` can terminate sessions of `ADMIN`, `LANDLORD`, and `TENANT`.
 2. `ADMIN` can terminate sessions of `LANDLORD` and `TENANT`.
 3. `ADMIN` attempting to terminate sessions of a `SUPER_ADMIN` or another `ADMIN` is strictly blocked (`HTTP 403 FORBIDDEN`, error: `ROLE_HIERARCHY_VIOLATION`).
+
+---
+
+### 3.4 Defense-in-Depth Guard Verification & Zero-Trust Enforcement
+1. **Mandatory Backend Authority**: All RBAC permissions listed in this matrix are enforced backend-side by NestJS guards (`RolesGuard`, `LandlordBuildingGuard`, `TenantRoomAccessGuard`, `DocumentAccessGuard`).
+2. **Zero-Trust Client Principle**: Client-side UI element hiding (e.g. hiding edit buttons for non-latest payments or hiding admin navigation links for tenants) is strictly for user experience (`BR-19.1`).
+3. **API Bypass Protection**: Direct API invocations (via curl, Postman, or tampered HTTP payloads) attempting to execute unauthorized operations bypass client UI constraints but are intercepted and rejected server-side with `HTTP 401 UNAUTHORIZED` or `HTTP 403 FORBIDDEN` (`BR-19.2`, `BR-19.3`).

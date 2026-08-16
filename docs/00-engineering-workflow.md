@@ -15,6 +15,7 @@
 6. **Traceability is mandatory:** every implementation must cite requirement IDs, acceptance criteria, tests, and any confirmed assumptions.
 7. **Modular Documentation Allocation:** New business rules, functional requirements, acceptance criteria, or technical specs MUST be placed into their dedicated document with explicit cross-referencing (`BR-xx` in `docs/business-rules.md`, `FR-xx` in `docs/02-functional-requirements.md`, `AC-xx` in `docs/acceptance-criteria.md`). Never bloat `MASTER.md`.
 8. **Mandatory Glossary Maintenance:** [`docs/glossary.md`](glossary.md) MUST be updated whenever new terms, abbreviations, domain concepts, or document references are introduced or used anywhere in the workspace.
+9. **Document Minimization & Modular Consolidation Rule:** Before creating any new document, review all existing project documentation to determine whether the new requirement, rule, decision, or information can be appropriately incorporated into an existing document. Do NOT create a new document for every new requirement or update. Prefer updating an existing relevant document when it provides an appropriate place. Avoid document duplication and fragmentation. Only create a standalone document if the requirement represents a distinct concern that genuinely provides value as a dedicated file.
 
 ### Principles
 
@@ -43,6 +44,7 @@ Requirement (FR-xx/NFR-xx) → Acceptance criteria (AC-xx.y) → Design decision
 | [04-domain-model.md](04-domain-model.md) | Stage 04 | Under Review (Pending Confirmation) |
 | [building-occupancy.md](building-occupancy.md) | Stage 04 (companion) | Active — single source of truth for occupancy domain rules |
 | [frontend-navigation.md](frontend-navigation.md) | Stage 04 (companion) | Active — single source of truth for frontend UI/UX navigation |
+| [file-storage-and-upload-policy.md](file-storage-and-upload-policy.md) | Stage 04 (companion) | Active — single source of truth for upload limits & storage cost policy |
 | [05-database-design.md](05-database-design.md) | Stage 05 | Pending |
 | [06-api-design.md](06-api-design.md) | Stage 06 | Pending |
 | [07-frontend-architecture.md](07-frontend-architecture.md) | Stage 07 | Pending |

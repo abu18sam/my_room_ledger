@@ -79,6 +79,8 @@
 |---|---|---|---|---|
 | **NFR-25** | **Country Code Integrity & Seeding Latency** | Database-level foreign key constraint (`ON DELETE RESTRICT`) guarantees 0 orphan phone records. Reusable seed execution from `data/country-codes.json` completes in $< 500\text{ ms}$ during DB deployment. Deleting, disabling, or updating in-use country codes guarantees strict HTTP 409 rejection. | Prisma Migration & Integration Test | BR-12.2, BR-12.3, FR-35 |
 | **NFR-26** | **Occupancy Aggregation SLA & RBAC Isolation** | Stacked building and floor occupancy aggregation queries complete within $\le 100\text{ ms}$ (p95) for portfolios up to 50 floors / 500 rooms. 100% backend guard rejection (`HTTP 403 FORBIDDEN`) on any unauthorized tenant cross-room navigation attempt. Responsive layout adapts seamlessly across Mobile ($<640\text{px}$), Tablet ($640\text{px}-1024\text{px}$), and Desktop ($>1024\text{px}$). | Performance Profiling & Responsive UX Audits | BR-17.3, BR-17.5, docs/building-occupancy.md, docs/frontend-navigation.md |
+| **NFR-27** | **5 MB Upload SLA & Storage Cost Isolation** | 100% backend rejection (`HTTP 413` / `HTTP 400`) on any file payload $> 5\text{ MB}$ ($5,242,880\text{ bytes}$). Presigned URL generation executes in $\le 50\text{ ms}$. Direct R2 transfer isolates NestJS API server RAM and bandwidth. Client WebP compression (~92% byte reduction) and 30-day soft-deleted file purge preserve storage budget without compromising AES-256 GCM encryption or audit logs. | Memory Leak Audits, Presigned Load Tests & R2 Bucket Inspections | BR-18.1–18.5, FR-131–136, docs/file-storage-and-upload-policy.md |
+| **NFR-28** | **Validation Latency SLA & Defense-in-Depth Coverage** | NestJS `ZodValidationPipe` schema evaluation completes in $\le 10\text{ ms}$ (p95) per request. 100% of API endpoints are protected by backend validation guards. Client-side PWA pre-validates forms before dispatch, eliminating 100% of invalid-format network calls. Direct tampered requests bypassing FE are intercepted and rejected backend-side. | Automated Security Penetration Tests & Benchmarks | BR-19.1–19.5, FR-137–142 |
 
 ---
 
@@ -94,6 +96,8 @@
 | **NFR-19 – NFR-20** | Quality & Governance | Jest Unit/Integration Tests, Git Workflow |
 | **NFR-25** | Data Integrity & Seeding | PostgreSQL FK Constraints (`ON DELETE RESTRICT`), Prisma Seed |
 | **NFR-26** | Occupancy & RBAC Isolation | PostgreSQL Composite Index (`@@index([currentRoomId, status])`), `TenantRoomAccessGuard` |
+| **NFR-27** | Upload Policy & Storage Costs | NestJS `PresignedUploadGuard`, Cloudflare R2 Presigned URLs, R2 Auto-Tiering & Cron Purge |
+| **NFR-28** | Dual Validation & Defense-in-Depth | React Hook Form (FE), NestJS 7-Stage Guard Pipe Chain, Zod Validation Pipe (BE) |
 
 ---
 

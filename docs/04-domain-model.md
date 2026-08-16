@@ -318,6 +318,89 @@ graph TD
 
 ---
 
+### 4.5 Document Storage Entity State Machine & Presigned Upload Flow
+Governs document upload lifecycle, 5 MB size ceiling validation, direct Cloudflare R2 transfer, deduplication, and retention purging (`BR-18`, `FR-131`–`FR-136`). Detailed in [`docs/file-storage-and-upload-policy.md`](file-storage-and-upload-policy.md).
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING_UPLOAD : Request Presigned URL (fileSizeBytes <= 5 MB)
+    PENDING_UPLOAD --> REJECTED : Size > 5 MB or Invalid MIME (HTTP 413 / 400)
+    PENDING_UPLOAD --> ACTIVE : Direct R2 PUT Complete & Confirmed
+    ACTIVE --> SOFT_DELETED : Entity Soft-Deleted (30-Day Retention Window)
+    SOFT_DELETED --> PURGED : 30 Days Expired (Cron Permanent R2 DeleteObject)
+    REJECTED --> [*]
+    PURGED --> [*]
+```
+
+#### Presigned Direct Upload Sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as PWA Frontend
+    participant API as NestJS Backend
+    participant R2 as Cloudflare R2 Bucket
+
+    Client->>Client: 1. Pre-validate File Size (<= 5 MB) & MIME
+    Client->>API: 2. POST /presigned-upload-url {fileName, fileSizeBytes, mimeType}
+    API->>API: 3. PresignedUploadGuard (Size <= 5MB Check)
+    alt Exceeds 5 MB / Invalid MIME
+        API-->>Client: HTTP 413 / 400 (MAX_FILE_SIZE_EXCEEDED)
+    else Valid <= 5 MB
+        API->>R2: 4. Generate 15-min S3 PutObject Presigned URL
+        API-->>Client: 201 Created {presignedUrl, documentId}
+        Client->>R2: 5. PUT Direct Payload to Presigned URL
+        R2-->>Client: 200 OK (Uploaded)
+        Client->>API: 6. POST /documents/{id}/confirm-upload
+        API->>API: 7. Verify SHA-256 Hash & Set Status ACTIVE
+        API-->>Client: 200 OK (Document Active)
+    end
+```
+
+#### Transition Invariants & Guard Rules
+* **5 MB Hard Ceiling:** Any file upload metadata or payload exceeding $5\text{ MB}$ ($5,242,880\text{ bytes}$) is strictly rejected by backend guards with `HTTP 413 PAYLOAD_TOO_LARGE` / `HTTP 400 BAD_REQUEST` (`error: "MAX_FILE_SIZE_EXCEEDED"`).
+* **Direct R2 Isolation:** Transfers execute directly from client to Cloudflare R2 via presigned URLs, bypassing API server memory.
+* **Storage Cost Optimizations:** Integrates client WebP compression, SHA-256 deduplication, R2 auto-tiering (Standard $\rightarrow$ Infrequent Access at 90 days), and 30-day soft-deleted file purge pipelines.
+* **Zero-Compromise Security:** AES-256 GCM encryption at rest, 15-minute presigned download URLs, RBAC isolation, and immutable `AuditLog` records are strictly preserved across all operations.
+
+---
+
+### 4.6 Dual-Layer Security Request Interception Sequence
+Governs the execution boundary between client-side UX pre-validation and the mandatory 7-stage backend NestJS security pipeline (`BR-19`, `FR-137`–`FR-142`).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Client / Malicious Actor
+    participant FE as Frontend PWA
+    participant BE as NestJS Backend (Source of Truth)
+    participant DB as PostgreSQL Database
+
+    User->>FE: 1. Submit Form / Request Payload
+    FE->>FE: 2. Client UX Pre-validation (Format, Required, File Size)
+    alt Invalid FE Input
+        FE-->>User: Instant Inline Field Error (No Network Request)
+    else FE Valid or Bypassed (Direct API / Tampered)
+        FE->>BE: 3. Dispatch HTTP Request to API Endpoint
+        BE->>BE: 4. Stage 1: ThrottlerGuard (Rate Limiting)
+        BE->>BE: 5. Stage 2: SessionValidationGuard (Active DB Session)
+        BE->>BE: 6. Stage 3: JwtAuthGuard (Token Signature & Expiry)
+        BE->>BE: 7. Stage 4: RolesGuard & RBAC Matrix Verification
+        BE->>BE: 8. Stage 5: ResourceAccessGuard (Multi-Tenant Ownership)
+        BE->>BE: 9. Stage 6: ZodValidationPipe (Schema & Sanitization)
+        BE->>BE: 10. Stage 7: Domain Service Invariants Validation
+        alt Any BE Check Fails
+            BE-->>User: HTTP 400 / 401 / 403 / 409 JSON Error Envelope
+        else All BE Checks Pass
+            BE->>DB: 11. Execute Database Mutation
+            DB-->>BE: Success Result
+            BE-->>User: HTTP 20x OK Payload
+        end
+    end
+```
+
+---
+
 ## 5. Traceability Map (Domain Entity → Requirement ID)
 
 All domain entities and state machines map back to the requirements and core business rules:
@@ -327,6 +410,8 @@ All domain entities and state machines map back to the requirements and core bus
 | **Access Control** | `User`, `UserSession` | `BR-01`, `BR-16.5` | `FR-01` – `FR-08` | `NFR-01`, `NFR-04` |
 | **Country Codes** | `CountryCode` | `BR-12.1` – `BR-12.5` | `FR-01f`, `FR-35a` – `FR-35f` | `NFR-25` |
 | **Occupancy & Stack Navigation** | `Building`, `Floor`, `Room`, `Tenant` | `BR-17.1` – `BR-17.5` | `FR-119` – `FR-130` | `NFR-26` |
+| **File Storage & Upload Policy** | `DocumentMetadata` | `BR-18.1` – `BR-18.5` | `FR-131` – `FR-136` | `NFR-27` |
+| **Dual Validation & Defense-in-Depth** | `NestJS Guards & ZodPipes` | `BR-19.1` – `BR-19.5` | `FR-137` – `FR-142` | `NFR-28` |
 | **Asset Hierarchy** | `Building`, `Floor`, `Room` | `BR-05`, `BR-06`, `BR-07` | `FR-22` – `FR-28` | `NFR-11` |
 | **Tenancy Lifecycle** | `Tenant`, `TenancyHistory` | `BR-08` | `FR-30` – `FR-35` | `NFR-07` |
 | **Rent Billing** | `RoomRentLedger` | `BR-03.4`, `BR-14.2` | `FR-36` – `FR-42` | `NFR-08`, `NFR-09` |

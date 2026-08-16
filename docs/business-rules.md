@@ -426,6 +426,61 @@ Authoritative governance rules for calculating structural occupancy, executing s
 - `TENANT` users can ONLY access the Room Details page for their currently assigned room (`Tenant.currentRoomId`).
 - Browsing unrelated buildings, floors, rooms, or tenant profiles outside their room is strictly forbidden and rejected backend-side by `TenantRoomAccessGuard` (`HTTP 403 FORBIDDEN`, `ROOM_ACCESS_DENIED`). Co-tenants assigned to the same room can view basic profile cards of active room-mates.
 
+---
+
+### BR-18: Global File-Upload Policy & Security-First Storage Lifecycle Governance
+Authoritative rules governing document upload size ceilings, dual-layer validation, presigned R2 upload architecture, and storage cost optimization. Detailed in [`docs/file-storage-and-upload-policy.md`](file-storage-and-upload-policy.md).
+
+#### BR-18.1 — Universal 5 MB File Size Ceiling
+- **Global Limit**: Every uploaded file across all features (utility bills, receipts, tenant IDs, complaint photos, user avatars, export reports) is strictly capped at **5 MB per file** ($5,242,880\text{ bytes}$).
+- **MIME Allowlist**: Accepts ONLY `image/jpeg`, `image/png`, `image/webp`, and `application/pdf`.
+
+#### BR-18.2 — Dual-Layer Validation & Backend Authority
+- **Frontend Pre-Validation**: Client PWA pre-validates file size before network transmission to save bandwidth.
+- **Backend Authority**: NestJS backend is the sole authoritative gatekeeper. Files $> 5\text{ MB}$ or invalid MIME types are rejected with `HTTP 413 PAYLOAD_TOO_LARGE` / `HTTP 400 BAD_REQUEST` (`error: "MAX_FILE_SIZE_EXCEEDED"`) returning a clear field-level error message.
+
+#### BR-18.3 — Presigned Direct-to-R2 Upload Architecture
+- All file transfers bypass API server proxying by requesting a 15-minute presigned `PutObject` URL (`POST /api/v1/documents/presigned-upload-url`) and uploading directly to Cloudflare R2, protecting API servers from OOM and high bandwidth costs.
+
+#### BR-18.4 — Security-First Storage Cost-Optimization Strategy
+- Integrates client-side WebP image compression (~92% byte reduction), SHA-256 content deduplication, R2 lifecycle auto-tiering (Infrequent Access transition at 90 days), and 30-day soft-deleted file purging.
+
+#### BR-18.5 — Zero-Compromise Security Principle
+- Storage cost optimizations MUST NEVER weaken AES-256 GCM encryption at rest, 15-minute presigned URL access, role-based access control, tenant privacy, or immutable audit logging (`AuditLog`).
+
+---
+
+### BR-19: Dual-Layer Validation Architecture & Defense-in-Depth Security Policy
+Authoritative rules governing the security and validation responsibility split between Frontend (FE) and Backend (BE).
+
+#### BR-19.1 — Frontend Validation (First Level - UX & Network Shield)
+- **Scope**: Client-side PWA forms and inputs MUST perform pre-validation prior to sending network requests to the backend.
+- **Purpose**: Provides instant user feedback, improves responsiveness, and prevents unnecessary network traffic.
+- **Coverage**: Required fields, input format regex (email, phone, pincode), password complexity rules, range constraints, and file size pre-checking ($< 5\text{ MB}$).
+
+#### BR-19.2 — Backend Validation (Mandatory Source of Truth & Final Security Boundary)
+- **Scope**: NestJS backend MUST independently perform 100% of all required security, input, authorization, and business validation checks on every API request.
+- **Zero-Trust Client Invariant**: Backend MUST NEVER trust frontend validation alone. Malicious callers (Postman, curl, direct API invocation, tampered payloads) bypassing the FE MUST be intercepted and rejected at the server boundary.
+- **Mandatory Server Checks on Every Request**:
+  1. Authentication (`SessionValidationGuard`, JWT signature & expiry)
+  2. Authorization & RBAC (`RolesGuard`, `TenantRoomAccessGuard`, `LandlordBuildingGuard`)
+  3. Input Data Schema & Sanitization (`ZodValidationPipe`, XSS escaping, SQL injection prevention)
+  4. Business Rules & Logic Invariants (Zero open dues, non-last transaction locks, in-use protections)
+  5. Multi-Tenant Data Ownership & Resource Access Boundaries
+  6. Rate Limiting & Payload Constraints (`ThrottlerGuard`, 5 MB upload ceiling)
+
+#### BR-19.3 — Defense-in-Depth Security Principle
+- FE validation is strictly for **UX and first-level network protection**.
+- BE validation is the **final security boundary and sole authoritative source of truth**.
+- Even if FE validation passes cleanly, the BE MUST re-validate the entire request payload and state before execution.
+
+#### BR-19.4 — NestJS Security Pipe Execution Chain
+- Every incoming request passes through an immutable 7-stage server execution pipeline:
+  `ThrottlerGuard` $\rightarrow$ `SessionValidationGuard` $\rightarrow$ `JwtAuthGuard` $\rightarrow$ `RolesGuard` $\rightarrow$ `ResourceAccessGuard` $\rightarrow$ `ZodValidationPipe` $\rightarrow$ `DomainServiceInvariants`.
+
+#### BR-19.5 — Standardized Validation Failure Envelopes
+- Server-side validation failures MUST return `HTTP 400 BAD_REQUEST` / `HTTP 422 UNPROCESSABLE_ENTITY` with a standardized JSON error envelope containing a `fieldErrors[]` array (`field`, `message`, `errorCode`). Internal stack traces, raw DB errors, and SQL queries are strictly hidden.
+
 
 
 

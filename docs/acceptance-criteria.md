@@ -457,6 +457,40 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 
 ---
 
+## AC-131 — Global File-Upload Policy & Storage Lifecycle Governance
+
+**Requirements:** FR-131 – FR-136, BR-18.1 – BR-18.5, NFR-27, [`docs/file-storage-and-upload-policy.md`](file-storage-and-upload-policy.md)
+
+| ID | Criterion |
+|----|---|
+| **AC-131.1** | Attempting to upload any file larger than **5 MB ($5,242,880\text{ bytes}$)** or with an unapproved MIME type via backend API (`POST /api/v1/documents/presigned-upload-url`) is rejected with `HTTP 413 PAYLOAD_TOO_LARGE` / `HTTP 400 BAD_REQUEST` (`error: "MAX_FILE_SIZE_EXCEEDED"`) returning a clear field-level error message. |
+| **AC-131.2** | The client PWA pre-validates file sizes before network transmission. Selecting a file $> 5\text{ MB}$ displays an instant field-level validation message below the file input and cancels API request dispatch. |
+| **AC-131.3** | File upload workflows request a time-bound (15-minute TTL) presigned URL (`POST /api/v1/documents/presigned-upload-url`) and transfer file bytes directly from client browser to Cloudflare R2 object storage, bypassing API server memory and bandwidth proxying. |
+| **AC-131.4** | Confirming an upload (`POST /api/v1/documents/{id}/confirm-upload`) calculates the SHA-256 hash of the R2 object. If an identical document hash exists, the backend links the existing object key and sets `isDeduplicated: true`. |
+| **AC-131.5** | High-resolution photo uploads (`image/jpeg`, `image/png`) are compressed client-side to WebP format (`max 2048px`, `quality 0.82`) prior to presigned upload URL request, achieving ~92% byte reduction. |
+| **AC-131.6** | Cloudflare R2 bucket lifecycle policies automatically transition inactive document objects older than 90 days from Standard Storage to Infrequent Access (IA) storage tier. |
+| **AC-131.7** | Soft-deleted documents (`isDeleted: true`) enter a 30-day retention window. A nightly Cron job permanently executes `DeleteObject` in R2 after 30 days and logs `PURGE_DOCUMENT_OBJECT` in `AuditLog`. |
+| **AC-131.8** | All document storage cost optimizations preserve **AES-256 GCM encryption at rest**, 15-minute presigned download URLs, NestJS `DocumentAccessGuard` RBAC checks, tenant privacy, and immutable `AuditLog` records without exception. |
+
+---
+
+## AC-137 — Dual-Layer Validation Architecture & Defense-in-Depth Security
+
+**Requirements:** FR-137 – FR-142, BR-19.1 – BR-19.5, NFR-28
+
+| ID | Criterion |
+|----|---|
+| **AC-137.1** | The client PWA pre-validates form inputs (required fields, format regex, password rules, range constraints, file size $< 5\text{ MB}$) client-side before network transmission, rendering instant field-level feedback and preventing invalid API calls. |
+| **AC-137.2** | Every backend API endpoint independently validates incoming payloads, authentication tokens, session status, RBAC permissions, multi-tenant resource ownership, and business logic invariants on every request, acting as the sole authoritative security boundary. |
+| **AC-137.3** | Direct API calls initiated outside the PWA (via curl, Postman, custom scripts, or tampered HTTP payloads) that bypass client-side validation are intercepted and rejected server-side by NestJS validation pipes and guards. |
+| **AC-137.4** | Every incoming request passes through an immutable 7-stage server execution pipeline: `ThrottlerGuard` $\rightarrow$ `SessionValidationGuard` $\rightarrow$ `JwtAuthGuard` $\rightarrow$ `RolesGuard` $\rightarrow$ `ResourceAccessGuard` $\rightarrow$ `ZodValidationPipe` $\rightarrow$ `DomainServiceInvariants`. |
+| **AC-137.5** | Attempting to access or mutate resources outside a user's assigned role or multi-tenant scope (e.g. tenant accessing unassigned room details or landlord modifying another landlord's building) is rejected server-side with `HTTP 403 FORBIDDEN`. |
+| **AC-137.6** | Server-side `ZodValidationPipe` schema failures return `HTTP 400 BAD_REQUEST` with a standardized JSON error envelope containing a `fieldErrors[]` array (`field`, `message`, `errorCode`). Internal stack traces and DB queries are strictly hidden. |
+| **AC-137.7** | Even if frontend pre-validation is modified or disabled in the client browser runtime, the backend re-validates 100% of the request payload and state before performing database mutations. |
+| **AC-137.8** | NestJS `ZodValidationPipe` schema evaluation executes within $\le 10\text{ ms}$ (p95) per request under load tests. |
+
+---
+
 ## Gate
 
 **Stage 02 Confirmed & Locked ✅** (Approved by User)

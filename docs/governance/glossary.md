@@ -9,14 +9,14 @@
 
 | Prefix / File | Full Name / Scope | Primary Purpose | Authoritative Path |
 | :--- | :--- | :--- | :--- |
-| **AC-xx** | Acceptance Criteria | Testable condition for verifying functional requirements | [`docs/acceptance-criteria.md`](acceptance-criteria.md) |
-| **API** | API Contracts | RESTful JSON endpoints, request/response DTO contracts | [`api-contracts.md`](../api-contracts.md) |
-| **ARCH** | System Architecture | Technical design, request lifecycle, data flow diagrams | [`architecture.md`](../architecture.md) |
-| **BR-xx** | Business Rule | Authoritative domain logic, formulas, and security constraints | [`docs/business-rules.md`](business-rules.md) |
-| **FR-xx** | Functional Requirement | Specific capability or behavior required by the system | [`docs/02-functional-requirements.md`](02-functional-requirements.md) |
-| **MASTER** | Master Product Specification | High-level executive product summary & rule index | [`MASTER.md`](../MASTER.md) |
-| **NFR-xx** | Non-Functional Requirement | System quality attribute (performance, security, reliability) | [`docs/03-non-functional-requirements.md`](03-non-functional-requirements.md) |
-| **SCHEMA** | Database Schema | PostgreSQL DDL & Prisma ORM model definitions | [`database-schema.md`](../database-schema.md) |
+| **AC-xx** | Acceptance Criteria | Testable condition for verifying functional requirements | [`docs/stages/acceptance-criteria.md`](../stages/acceptance-criteria.md) |
+| **API** | API Contracts | RESTful JSON endpoints, request/response DTO contracts | [`docs/technical/api-contracts.md`](../technical/api-contracts.md) |
+| **ARCH** | System Architecture | Technical design, request lifecycle, data flow diagrams | [`docs/technical/architecture.md`](../technical/architecture.md) |
+| **BR-xx** | Business Rule | Authoritative domain logic, formulas, and security constraints | [`docs/governance/business-rules.md`](business-rules.md) |
+| **FR-xx** | Functional Requirement | Specific capability or behavior required by the system | [`docs/stages/02-functional-requirements.md`](../stages/02-functional-requirements.md) |
+| **MASTER** | Master Product Specification | High-level executive product summary & rule index | [`MASTER.md`](../../MASTER.md) |
+| **NFR-xx** | Non-Functional Requirement | System quality attribute (performance, security, reliability) | [`docs/stages/03-non-functional-requirements.md`](../stages/03-non-functional-requirements.md) |
+| **SCHEMA** | Database Schema | PostgreSQL DDL & Prisma ORM model definitions | [`docs/technical/database-schema.md`](../technical/database-schema.md) |
 
 ---
 
@@ -66,6 +66,7 @@
 | **Error Code** | Machine-readable SCREAMING_SNAKE_CASE string uniquely identifying an error condition (e.g. `COMPANY_IN_USE`, `PENDING_SUPPLIER_BILLS_EXIST`). Enables precise client error routing. | BR-15.1, FR-82, AC-82.1, docs/error-handling.md |
 | **Error Envelope** | Standardized JSON structure returned for all non-2xx API responses: `{ statusCode, error, message, metadata }` (or `details` for validation errors). | BR-15.1, FR-82, AC-82.1, docs/error-handling.md |
 | **File Size Ceiling (5 MB)** | Universal system-wide maximum file upload limit ($5,242,880\text{ bytes}$) enforced across all file features (bills, receipts, tenant IDs, complaint photos, avatars, export reports). | BR-18.1, FR-131, NFR-27, docs/file-storage-and-upload-policy.md |
+| **Financial Mutation Idempotency** | Financial safety safeguard attaching a unique UUIDv7 `Idempotency-Key` header to non-idempotent HTTP requests (`POST`, `PUT`, `PATCH`) to prevent duplicate rent payments, double billing, or duplicate expense entries under network retries. | BR-20.5, FR-147–148, NFR-29, api-contracts.md §0.7.4 |
 | **Flexible Billing Cycle** | Non-calendar billing cycle structure allowing each room to start/end on any day ($1..31$), with room rent, room electricity, and building master bill cycles operating on independent schedules. | BR-02, FR-101, AC-101.1, docs/billing-and-reconciliation.md |
 | **Floor Occupancy State** | Aggregated occupancy status of a floor (`OCCUPIED` if $\ge 1$ room is occupied; `VACANT` if ALL rooms are vacant). | BR-17.2, FR-120, AC-119.2, docs/building-occupancy.md |
 | **Force Logout** | Administrative action allowing a Super Admin or Admin to forcefully invalidate active user sessions (`UserSession` records purged from DB) based on role hierarchy. | BR-01.5, FR-89–91, AC-89.1–4 |
@@ -103,6 +104,7 @@
 | **SHA-256 Document Deduplication** | Storage cost-saving mechanism calculating cryptographic SHA-256 digests of uploaded files to link duplicate document records without storing duplicate object bytes in Cloudflare R2. | BR-18.4, FR-135, NFR-27, docs/file-storage-and-upload-policy.md |
 | **Shared Bathroom / Toilet** | Floor-level shared sanitation facility using standardized numbering (`Bath XY`, `Toilet XY`). | BR-06, BR-07, FR-26, AC-22.5 |
 | **Signed R2 URL** | Time-bound (15-minute TTL) encrypted URL generated by NestJS backend for secure document downloads from Cloudflare R2 bucket. | BR-10.3, NFR-03, docs/03-non-functional-requirements.md |
+| **Single-Refresh Queue Mutex** | Client-side response interceptor pattern using an `isRefreshing` mutex flag and `failedQueue[]` array to dispatch exactly ONE token refresh request when Access Token expires, resolving all concurrent failing requests without component error flashes. | BR-20.2, FR-144, NFR-29, api-contracts.md §0.7.2 |
 | **Single-View Modal** | Secure Admin portal modal displaying generated temporary password for manual share (valid 15-30 mins, logged in audit). | BR-11.3, FR-P10, AC-P05.6 |
 | **Storage Auto-Tiering** | Cloudflare R2 storage lifecycle policy automatically transitioning inactive objects older than 90 days from Standard Storage to Infrequent Access (IA) tier to reduce GB storage costs by ~65%. | BR-18.4, FR-135, NFR-27, docs/file-storage-and-upload-policy.md |
 | **Super Admin** | Platform Owner / Role Administrator. Highest authority capable of creating Admins and viewing Level 4 platform metrics. | BR-01.1, FR-09–14, AC-09 |

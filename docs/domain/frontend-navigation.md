@@ -172,6 +172,6 @@ The application UI adapts gracefully across device viewports using Tailwind CSS 
 ## 6. Maintenance Policy for UI Navigation Requirements
 
 Whenever new UI components, responsive layout changes, page transitions, tooltips, or navigation interaction rules are introduced in future stages:
-1. **Update ONLY this document** (`frontend-navigation.md`).
-2. Reference this document from `docs/business-rules.md` (`BR-17`), `docs/02-functional-requirements.md`, and `MASTER.md`.
+1. **Update ONLY this document** (`frontend-navigation.md`) with the visual UI & navigation design.
+2. Reference this document from `docs/governance/business-rules.md` (`BR-17`), `docs/stages/02-functional-requirements.md`, and `MASTER.md`.
 3. **Do NOT duplicate UI layout code or interaction specs** in `building-occupancy.md` or other business rule documents.

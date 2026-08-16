@@ -1,10 +1,9 @@
-# 📜 CORE BUSINESS RULES & DOMAIN SPECIFICATION
+# Master Business Rules & System Logic Specification
 
-**System:** My Room Ledger / RentAway  
-**Status:** Confirmed & Active  
-**Upstream:** [MASTER.md](../MASTER.md)  
-**Downstream:** [01-requirement-analysis.md](01-requirement-analysis.md), [02-functional-requirements.md](02-functional-requirements.md), [acceptance-criteria.md](acceptance-criteria.md)  
-**Workflow Tracker:** [00-engineering-workflow.md](00-engineering-workflow.md)
+**Status:** Active & Mandatory Baseline ✅  
+**Upstream:** [MASTER.md](../../MASTER.md)  
+**Downstream:** [01-requirement-analysis.md](../stages/01-requirement-analysis.md), [02-functional-requirements.md](../stages/02-functional-requirements.md), [acceptance-criteria.md](../stages/acceptance-criteria.md)  
+**Workflow Tracker:** [../00-engineering-workflow.md](../00-engineering-workflow.md)
 
 ---
 
@@ -404,11 +403,13 @@ OVERDUE
 ---
 
 ### BR-17: Building, Floor, Room Occupancy Engine & Stacked Navigation System Architecture
-Authoritative governance rules for calculating structural occupancy, executing stacked UI navigation, responsive viewports, and enforcing tenant RBAC isolation. Detailed in [`docs/building-occupancy.md`](building-occupancy.md) (Domain occupancy rules source of truth) and [`docs/frontend-navigation.md`](frontend-navigation.md) (UI presentation & responsive navigation source of truth).
+Authoritative governance rules for calculating structural occupancy, executing stacked UI navigation, responsive viewports, and enforcing tenant RBAC isolation. Detailed in [`docs/domain/building-occupancy.md`](../domain/building-occupancy.md) (Domain occupancy rules source of truth) and [`docs/domain/frontend-navigation.md`](../domain/frontend-navigation.md) (UI presentation & responsive navigation source of truth).
 
-#### BR-17.1 — Active Tenant Occupancy Derivation Rule
-- **Active Assignment Invariant**: A room's occupancy status is derived **strictly and exclusively** from active tenant assignments (`Tenant.status = ACTIVE` AND `Tenant.currentRoomId = room.id`).
-- **Historical Data Isolation**: Past tenants who have checked out (`status = MOVED_OUT` in `TenancyHistory`) do NOT make a room occupied. A room with 0 active assigned tenants is strictly `VACANT` regardless of past tenant count.
+#### BR-17.1 — Occupancy Status Derivation Rules
+- **Active Assignment Dependency**: A room's occupancy status is derived **strictly from active tenant assignments** (`Tenant.status = ACTIVE` AND `Tenant.currentRoomId = room.id`).
+- **Room Occupied**: A room with $\ge 1$ active tenant is classified as `OCCUPIED`.
+- **Room Vacant**: A room with 0 active tenants is classified as `VACANT`.
+- **Historical Tenant Isolation**: Tenants who have checked out (`status = MOVED_OUT` in `TenancyHistory`) MUST NOT keep a room marked as occupied. Historical logs remain accessible for audit, billing history, and room timeline without altering current occupancy.
 
 #### BR-17.2 — Hierarchical Occupancy Aggregation Formulas
 - **Room Status**: `OCCUPIED` if active tenants $\ge 1$; `VACANT` if active tenants $= 0$.
@@ -480,6 +481,30 @@ Authoritative rules governing the security and validation responsibility split b
 
 #### BR-19.5 — Standardized Validation Failure Envelopes
 - Server-side validation failures MUST return `HTTP 400 BAD_REQUEST` / `HTTP 422 UNPROCESSABLE_ENTITY` with a standardized JSON error envelope containing a `fieldErrors[]` array (`field`, `message`, `errorCode`). Internal stack traces, raw DB errors, and SQL queries are strictly hidden.
+
+---
+
+### BR-20: Frontend API Communication, Server-State & Financial Idempotency Governance
+Authoritative rules governing frontend API transport, interceptors, server-state caching, token rotation queues, session revocation handling, and financial idempotency.
+
+#### BR-20.1 — Centralized Axios Interceptor Pipeline
+- **Mandatory Transport**: All frontend API calls MUST route through a centralized Axios client instance (`lib/api/api-client.ts`). Individual React components are strictly prohibited from configuring ad-hoc fetch calls, manual auth headers, or independent error handlers.
+
+#### BR-20.2 — Single-Refresh Queue Mutex Algorithm
+- **10-Minute Access Token Expiry**: When an API request fails with `HTTP 401 UNAUTHORIZED` (`TOKEN_EXPIRED`), the response interceptor uses a single-refresh mutex (`isRefreshing` flag).
+- **Concurrency Queueing**: Exactly one `/api/v1/auth/refresh` request is dispatched. Parallel failing requests are held in a `failedQueue[]` until refresh completes, then resolved and retried automatically. Originating React components remain completely unaware of token rotation.
+
+#### BR-20.3 — Session Revocation Immediate Ejection (`SESSION_REVOKED`)
+- **Admin Force Logout Override**: When the backend responds with `error: "SESSION_REVOKED"` or `errorCode: "ERR-1002"`, the client interceptor MUST NOT attempt token refresh.
+- **Immediate Ejection**: Interceptor instantly purges client auth state (`useAuthStore`), cancels all pending TanStack Query operations (`queryClient.cancelQueries()`), redirects the browser to `/login?reason=session_revoked`, and displays a clear toast notification.
+
+#### BR-20.4 — TanStack Query Server-State Caching & Invalidation SLA
+- **Server-State Ownership**: TanStack Query v5 is the sole manager of server data caching (`staleTime: 5m`, `gcTime: 15m`).
+- **Mutation Invalidation Guarantee**: Every financial mutation (rent payment, submeter payment, expense entry) MUST trigger target query key invalidation (`queryClient.invalidateQueries()`) across impacted domain models (ledger, room, building revenue, and dashboard metrics). Duplicate server state in local React state is strictly forbidden.
+
+#### BR-20.5 — Financial Mutation Idempotency Safeguard
+- **Idempotency Header Injection**: All non-idempotent financial mutations (`POST`, `PUT`, `PATCH`) MUST inject a unique UUIDv7 `Idempotency-Key` header (`Idempotency-Key: idemp_<uuidv7>`).
+- **Retry Restriction**: Automatic network retries in client interceptors are strictly prohibited for financial endpoints unless an `Idempotency-Key` header is present, protecting against double-billing and duplicate payment transactions.
 
 
 

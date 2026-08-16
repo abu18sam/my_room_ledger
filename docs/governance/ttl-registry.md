@@ -2,7 +2,7 @@
 
 ## System: My Room Ledger / RentAway (NestJS Backend API & PWA Frontend)
 
-**Authoritative Single Source of Truth:** This document is the **sole authoritative reference** for all token lifecycles, expiration rules, Time-To-Live (TTL) durations, temporary access links, and signed document URLs across the entire application ecosystem. All upstream specifications ([`docs/business-rules.md`](business-rules.md), [`docs/02-functional-requirements.md`](02-functional-requirements.md), [`docs/03-non-functional-requirements.md`](03-non-functional-requirements.md), [`api-contracts.md`](../api-contracts.md), [`architecture.md`](../architecture.md)) MUST cross-reference this document rather than duplicating TTL values.
+**Authoritative Single Source of Truth:** This document is the **sole authoritative reference** for all token lifecycles, expiration rules, Time-To-Live (TTL) durations, temporary access links, and signed document URLs across the entire application ecosystem. All upstream specifications ([`docs/governance/business-rules.md`](business-rules.md), [`docs/stages/02-functional-requirements.md`](../stages/02-functional-requirements.md), [`docs/stages/03-non-functional-requirements.md`](../stages/03-non-functional-requirements.md), [`api-contracts.md`](../technical/api-contracts.md), [`architecture.md`](../technical/architecture.md)) MUST cross-reference this document rather than duplicating TTL values.
 
 ---
 

@@ -110,6 +110,33 @@ All responses include:
 Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard → ZodValidationPipe → Controller → Service → Prisma
 ```
 
+### 0.7 — Client Interceptor Pipeline & Financial Idempotency Specification
+
+#### 0.7.1 Request Interceptor & Header Injection
+Every client-side API call dispatched via the central Axios client automatically attaches:
+- `Authorization: Bearer <access_token>` (for authenticated requests).
+- `X-Requested-With: XMLHttpRequest` (for CSRF protection during cookie transport).
+- `Idempotency-Key: idemp_<uuidv7>` (injected on financial mutations: rent payments, submeter payments, expense logging).
+
+#### 0.7.2 Token Expiry & Concurrent Refresh Queue Mutex
+When an API request receives `HTTP 401 UNAUTHORIZED` (error code: `TOKEN_EXPIRED` or `UNAUTHORIZED`):
+1. Response interceptor checks the `isRefreshing` mutex flag.
+2. If `isRefreshing === false`, sets `isRefreshing = true` and dispatches `POST /api/v1/auth/refresh` (HttpOnly cookie).
+3. If `isRefreshing === true`, queues caller promise callbacks into `failedQueue[]`.
+4. Upon successful refresh: Updates default `Authorization` header, resolves all queued requests in `failedQueue[]`, retries original request, and resets `isRefreshing = false`. Originating components remain completely unaware of the refresh cycle.
+
+#### 0.7.3 Session Revocation Ejection (`SESSION_REVOKED`)
+When an API request returns `HTTP 401 UNAUTHORIZED` with `error: "SESSION_REVOKED"` or `errorCode: "ERR-1002"`:
+1. Interceptor bypasses token refresh completely.
+2. Purges client-side auth state (`useAuthStore.getState().clearAuth()`).
+3. Cancels all pending queries in `queryClient.cancelQueries()`.
+4. Redirects window to `/login?reason=session_revoked` and displays toast notification: *"Your session was terminated by an administrator. Please log in again."*
+
+#### 0.7.4 Financial Idempotency Header Contract
+- **Header**: `Idempotency-Key: idemp_<uuidv7>`
+- **Scope**: Mandatory for non-idempotent financial POST/PUT/PATCH endpoints (`/ledgers/room-rent/{id}/payments`, `/ledgers/electricity/{id}/payments`, `/buildings/{id}/expenses`).
+- **Backend Retention**: Backend caches idempotency keys for 24 hours. Resubmitting an identical key returns the original cached response without re-executing DB mutations. Automatic retries in client interceptors are strictly disabled for non-idempotent methods unless an `Idempotency-Key` is present.
+
 ---
 
 ## 1. Authentication & Role Management Endpoints
@@ -1046,7 +1073,7 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
 
 ### `GET /api/v1/files/{documentId}/signed-url`
 - **Access**: Authorized Role Scope Check
-- **Purpose**: Generates an expiring signed URL for document retrieval. All signed URL TTLs (15 minutes / 900s) are governed by [`docs/ttl-registry.md`](docs/ttl-registry.md).
+- **Purpose**: Generates an expiring signed URL for document retrieval. All signed URL TTLs (15 minutes / 900s) are governed by [`docs/governance/ttl-registry.md`](../governance/ttl-registry.md).
 - **Response (200 OK)**:
   ```json
   {

@@ -1,10 +1,9 @@
-# Stage 02 — Functional Requirements
+# Stage 02 — Functional Requirements Specification
 
-**Status:** Confirmed & Locked ✅  
-**Date locked:** 2026-08-09  
+**Status:** Confirmed ✅ (Approved by User)  
 **Upstream:** [01-requirement-analysis.md](01-requirement-analysis.md), MASTER.md business rules  
 **Downstream:** [acceptance-criteria.md](acceptance-criteria.md), Stage 03 NFRs  
-**Workflow tracker:** [00-engineering-workflow.md](00-engineering-workflow.md)
+**Workflow tracker:** [../00-engineering-workflow.md](../00-engineering-workflow.md)
 
 ---
 
@@ -466,6 +465,21 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | **FR-140** | Every incoming request MUST pass through an immutable 7-stage server execution chain: `ThrottlerGuard` $\rightarrow$ `SessionValidationGuard` $\rightarrow$ `JwtAuthGuard` $\rightarrow$ `RolesGuard` $\rightarrow$ `ResourceAccessGuard` $\rightarrow$ `ZodValidationPipe` $\rightarrow$ `DomainServiceInvariants`. | BR-19.4 |
 | **FR-141** | The Backend MUST enforce strict multi-tenant resource data ownership (`LandlordBuildingGuard`, `TenantRoomAccessGuard`), rejecting unauthorized cross-tenant resource access requests with `HTTP 403 FORBIDDEN`. | BR-19.2, BR-17.5 |
 | **FR-142** | Server-side validation failures MUST return standardized `HTTP 400 BAD_REQUEST` / `HTTP 422 UNPROCESSABLE_ENTITY` JSON envelopes with a `fieldErrors[]` array (`field`, `message`, `errorCode`), strictly hiding internal stack traces, DB exceptions, and SQL queries. | BR-19.5, BR-15.1 |
+
+---
+
+### 3.11 Frontend API Architecture, State Management & Idempotency Requirements
+
+#### 3.11.1 Client Transport & Interceptor Rules
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-143** | All frontend API calls MUST route through a centralized Axios client instance (`lib/api/api-client.ts`) that enforces standard headers, authentication Bearer tokens, CSRF protection, and timeout limits (`15s`). | BR-20.1, architecture.md |
+| **FR-144** | Upon receiving an `HTTP 401 UNAUTHORIZED` (`TOKEN_EXPIRED`) error, the response interceptor MUST execute a single-refresh mutex (`isRefreshing` flag). Parallel failing requests MUST be queued in `failedQueue[]`, resolved upon refresh completion, and retried without component awareness. | BR-20.2, api-contracts.md §0.7.2 |
+| **FR-145** | Upon receiving an `HTTP 401 UNAUTHORIZED` with `error: "SESSION_REVOKED"` or `errorCode: "ERR-1002"`, the interceptor MUST bypass token refresh, purge client auth state (`useAuthStore`), cancel pending queries, redirect to `/login?reason=session_revoked`, and alert the user. | BR-20.3, api-contracts.md §0.7.3 |
+| **FR-146** | Server-state management MUST use **TanStack Query v5**, governing caching (`staleTime: 5m`, `gcTime: 15m`), loading/error states, request deduplication, and automatic target query invalidation upon mutation. | BR-20.4, architecture.md |
+| **FR-147** | All non-idempotent financial mutations (`POST`, `PUT`, `PATCH` for payments, ledgers, expenses) MUST inject a unique UUIDv7 `Idempotency-Key` header (`Idempotency-Key: idemp_<uuidv7>`). | BR-20.5, api-contracts.md §0.7.4 |
+| **FR-148** | Automatic client-side HTTP retries MUST be strictly disabled for non-idempotent methods (`POST`, `PUT`, `PATCH`) unless an explicit `Idempotency-Key` header is attached, preventing duplicate financial transactions. | BR-20.5, api-contracts.md §0.7.4 |
 
 ---
 

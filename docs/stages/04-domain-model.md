@@ -1,9 +1,9 @@
 # Stage 04 — Domain Model & State Machines Specification
 
-**Status:** Under Review (Pending User Confirmation) ⏳  
+**Status:** Under Review ⏳  
 **Upstream:** [03-non-functional-requirements.md](03-non-functional-requirements.md) (Confirmed & Locked ✅)  
-**Downstream:** Stage 05 (Database Design)  
-**Workflow tracker:** [00-engineering-workflow.md](00-engineering-workflow.md)
+**Downstream:** Stage 05 Database Design  
+**Workflow tracker:** [../00-engineering-workflow.md](../00-engineering-workflow.md)
 
 ---
 
@@ -284,8 +284,8 @@ stateDiagram-v2
 
 ---
 
-### 4.4 Building, Floor & Room Occupancy Hierarchy & Navigation Workflow
-Governs dynamic active-tenant-based structural occupancy calculation and hierarchical navigation (`BR-17`, `FR-119`–`FR-130`). Detailed in [`docs/building-occupancy.md`](building-occupancy.md) (Occupancy domain rules) and [`docs/frontend-navigation.md`](frontend-navigation.md) (UI presentation & responsive navigation).
+### 4.5 Building Occupancy & Visual Navigation State Machine
+Governs dynamic active-tenant-based structural occupancy calculation and hierarchical navigation (`BR-17`, `FR-119`–`FR-130`). Detailed in [`docs/domain/building-occupancy.md`](../domain/building-occupancy.md) (Occupancy domain rules) and [`docs/domain/frontend-navigation.md`](../domain/frontend-navigation.md) (UI presentation & responsive navigation).
 
 ```mermaid
 stateDiagram-v2
@@ -401,6 +401,44 @@ sequenceDiagram
 
 ---
 
+### 4.7 Token Refresh Queue & Session Revocation Sequences
+Governs client interceptor handling for 10-minute access token rotation, concurrent refresh queueing, session revocation ejection, and financial idempotency (`BR-20`, `FR-143`–`FR-148`).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor CompA as React Component A
+    actor CompB as React Component B
+    participant Interceptor as Axios Response Interceptor
+    participant Queue as Interceptor Failed Queue
+    participant AuthAPI as NestJS Auth Module
+
+    note over CompA, CompB: Token Expiration & Concurrent Refresh Sequence
+    CompA->>Interceptor: Request 1 (Access Token Expired)
+    CompB->>Interceptor: Request 2 (Access Token Expired)
+    Interceptor->>Interceptor: Catch HTTP 401 TOKEN_EXPIRED
+    alt isRefreshing === false
+        Interceptor->>Interceptor: Set isRefreshing = true
+        Interceptor->>AuthAPI: POST /api/v1/auth/refresh (HttpOnly Refresh Cookie)
+    else isRefreshing === true
+        Interceptor->>Queue: Push Request 2 Promise to failedQueue[]
+    end
+
+    alt Refresh Successful
+        AuthAPI-->>Interceptor: 200 OK (New Access Token)
+        Interceptor->>Interceptor: Update Authorization Header & Set isRefreshing = false
+        Interceptor->>Queue: Resolve all queued requests with New Token
+        Interceptor->>CompA: Retry Request 1 → Return Payload
+        Queue->>CompB: Retry Request 2 → Return Payload
+    else Refresh Fails or SESSION_REVOKED (ERR-1002)
+        AuthAPI-->>Interceptor: 401 UNAUTHORIZED / SESSION_REVOKED
+        Interceptor->>Interceptor: Clear Auth Store & Cancel TanStack Queries
+        Interceptor->>CompA: Redirect /login?reason=session_revoked + Toast Notification
+    end
+```
+
+---
+
 ## 5. Traceability Map (Domain Entity → Requirement ID)
 
 All domain entities and state machines map back to the requirements and core business rules:
@@ -412,6 +450,7 @@ All domain entities and state machines map back to the requirements and core bus
 | **Occupancy & Stack Navigation** | `Building`, `Floor`, `Room`, `Tenant` | `BR-17.1` – `BR-17.5` | `FR-119` – `FR-130` | `NFR-26` |
 | **File Storage & Upload Policy** | `DocumentMetadata` | `BR-18.1` – `BR-18.5` | `FR-131` – `FR-136` | `NFR-27` |
 | **Dual Validation & Defense-in-Depth** | `NestJS Guards & ZodPipes` | `BR-19.1` – `BR-19.5` | `FR-137` – `FR-142` | `NFR-28` |
+| **Frontend API & Idempotency** | `Axios Interceptors & TanStack Query` | `BR-20.1` – `BR-20.5` | `FR-143` – `FR-148` | `NFR-29` |
 | **Asset Hierarchy** | `Building`, `Floor`, `Room` | `BR-05`, `BR-06`, `BR-07` | `FR-22` – `FR-28` | `NFR-11` |
 | **Tenancy Lifecycle** | `Tenant`, `TenancyHistory` | `BR-08` | `FR-30` – `FR-35` | `NFR-07` |
 | **Rent Billing** | `RoomRentLedger` | `BR-03.4`, `BR-14.2` | `FR-36` – `FR-42` | `NFR-08`, `NFR-09` |

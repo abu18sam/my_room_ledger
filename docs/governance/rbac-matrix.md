@@ -37,9 +37,9 @@
 | **Country Code Metadata** | C / R / U / D | C / R / U / D | R | R | Read-only for public/auth; managed by Admin & Super Admin via `/api/v1/admin/country-codes`. Update/Disable/Delete blocked if referenced by ≥ 1 user (`COUNTRY_CODE_IN_USE`). |
 | **Power Supply Company** | C / R / U / D | C / R / U / D | R | — | Deletion blocked if company linked to ≥1 building (`COMPANY_IN_USE`). |
 | **Building Infrastructure** | C / R / U / D | C / R / U / D | C / R / U / D (Own) | — | Landlord strictly limited to own registered buildings. |
-| **Building Occupancy Stack** | R | R | R (Own Buildings) | — | Stacked view of floors & building occupancy metrics (`building-occupancy.md`, `frontend-navigation.md`). Tenants forbidden. |
-| **Floor Details & Room Blocks** | R | R | R (Own Buildings) | — | Floor KPI metrics, room block cards & hover tooltips (`frontend-navigation.md`). Tenants forbidden. |
-| **Room Details Page** | R | R | R (Own Buildings) | R (Assigned Room Only) | Tenants restricted to own assigned room (`TenantRoomAccessGuard`, `frontend-navigation.md`). |
+| **Building Occupancy Stack** | R | R | R (Own Buildings) | — | Stacked view of floors & building occupancy metrics ([`building-occupancy.md`](../domain/building-occupancy.md), [`frontend-navigation.md`](../domain/frontend-navigation.md)). Tenants forbidden. |
+| **Floor Details & Room Blocks** | R | R | R (Own Buildings) | — | Floor KPI metrics, room block cards & hover tooltips ([`frontend-navigation.md`](../domain/frontend-navigation.md)). Tenants forbidden. |
+| **Room Details Page** | R | R | R (Own Buildings) | R (Assigned Room Only) | Tenants restricted to own assigned room (`TenantRoomAccessGuard`, [`frontend-navigation.md`](../domain/frontend-navigation.md)). |
 | **Active Tenant Profile Cards** | R | R | R (Own Buildings) | R (Assigned Room Co-Tenants) | Tenants can view active co-tenants in assigned room; forbidden outside. |
 | **Power Supplier Switch** | C / U | C / U | C / U (Own) | — | Requires zero open master bills (`PENDING_SUPPLIER_BILLS_EXIST`). |
 | **Building Power Connections (History)** | R | R | R | — | Inserted automatically on supplier switch; **Insert-Only (No U/D)**. |
@@ -91,3 +91,4 @@ To allow landlords to correct entry mistakes (e.g. typos in payment amount, date
 1. **Mandatory Backend Authority**: All RBAC permissions listed in this matrix are enforced backend-side by NestJS guards (`RolesGuard`, `LandlordBuildingGuard`, `TenantRoomAccessGuard`, `DocumentAccessGuard`).
 2. **Zero-Trust Client Principle**: Client-side UI element hiding (e.g. hiding edit buttons for non-latest payments or hiding admin navigation links for tenants) is strictly for user experience (`BR-19.1`).
 3. **API Bypass Protection**: Direct API invocations (via curl, Postman, or tampered HTTP payloads) attempting to execute unauthorized operations bypass client UI constraints but are intercepted and rejected server-side with `HTTP 401 UNAUTHORIZED` or `HTTP 403 FORBIDDEN` (`BR-19.2`, `BR-19.3`).
+4. **Client Interceptor Ejection on Session Revocation**: If an Admin terminates an active user session, the backend responds with `error: "SESSION_REVOKED"` (`ERR-1002`). The client-side Axios response interceptor immediately purges local auth state, cancels TanStack Query subscriptions, and ejects the user to `/login?reason=session_revoked` (`BR-20.3`).

@@ -13,6 +13,8 @@ The system is built using a **Decoupled Security-First Monolith** pattern:
 ```
 +---------------------------------------------------------------------------------+
 |                        PRESENTATION LAYER (Next.js PWA)                         |
+|  React Components (UI) → TanStack Query v5 (Server State) → Orval Services      |
+|  → Central Axios Client (Interceptors: Auth, Refresh Mutex, Idempotency)        |
 |   +---------------------+   +---------------------+   +---------------------+   |
 |   | Super Admin Portal  |   |    Admin Portal     |   | Landlord Dashboard  |   |
 |   +----------+----------+   +----------+----------+   +----------+----------+   |
@@ -117,17 +119,46 @@ Incoming HTTP Request
             ▼
 [NestJS Backend Execution]
   ├─ ROUTE A (User Has Email):
-  │    ├─ Generates Signed Reset Link Token (15-min TTL as specified in docs/ttl-registry.md)
+  │    ├─ Generates Signed Reset Link Token (15-min TTL as specified in [`docs/governance/ttl-registry.md`](../governance/ttl-registry.md))
   │    ├─ Emails Link to User
   │    ├─ User clicks link → FE `/reset-password?token=...` (displays Name & Email)
   │    └─ User enters New Password + Confirm → Token invalidated, ALL sessions purged, redirect to Login
   │
   └─ ROUTE B (No Registered Email — Fallback Flow):
-       ├─ Generates Secure Temporary Password (30-min TTL as specified in docs/ttl-registry.md) & sets `mustChangePassword = true`
+       ├─ Generates Secure Temporary Password (30-min TTL as specified in [`docs/governance/ttl-registry.md`](../governance/ttl-registry.md)) & sets `mustChangePassword = true`
        ├─ Displays Temp Password in Admin Single-View Modal (recorded in audit logs)
        ├─ User logs in with Temp Password → forced to "Create New Password" page (displays Name & Email)
        └─ User sets New Password + Confirm → `mustChangePassword` = false, ALL sessions purged, redirect to Login
 ```
+
+---
+
+## 1d. Frontend API Communication & Server-State Management Architecture
+
+```mermaid
+graph TD
+    UI[React Components / PWA Pages] -->|useQuery / useMutation| TQ[TanStack Query v5 Layer]
+    TQ -->|Call Typed Methods| Service[API Service Layer - Orval Generated]
+    Service -->|Execute Requests| Axios[Central Axios Client Instance]
+    
+    subgraph "Axios Interceptor Pipeline (Centralized Infrastructure)"
+        Axios --> ReqInt[Request Interceptor: Auth Header + Correlation ID + Idempotency Key]
+        ReqInt --> HTTP[HTTPS Request to NestJS Backend]
+        HTTP --> ResInt[Response Interceptor: Normalizer + Token Rotation + Session Revocation]
+    end
+    
+    ResInt -->|Normal Error / Success| TQ
+    ResInt -->|401 Token Expired| Refresh[Single Refresh Queue Mutex]
+    Refresh -->|Success| Retry[Retry Original Request]
+    Retry --> TQ
+    Refresh -->|401 SESSION_REVOKED| Revoke[Clear Auth Store + Redirect /login + Toast Alert]
+```
+
+### Architectural Principles & Layer Boundaries
+1. **React Component Boundary**: Responsible strictly for UI rendering, local component state (modals, tabs, dropdowns), and client-side form input pre-validation (React Hook Form + Zod).
+2. **TanStack Query (v5) Boundary**: Dedicated server-state management layer handling server data caching (`staleTime: 5m`, `gcTime: 15m`), background refetching, request deduplication, loading/error states, and targeted query invalidation (e.g. invalidating ledger, room, building revenue, and dashboard query keys upon rent payment mutation).
+3. **Axios Client & Service Boundary**: Centralized HTTP transport layer handling headers, timeout enforcement (`15s`), Orval-generated TypeScript DTO contracts, request/response interceptor pipelines, error normalization, single-refresh queue mutex, and UUIDv7 idempotency key injection for financial requests.
+4. **NestJS Backend Boundary**: Sole authoritative security boundary enforcing authentication, RBAC authorization, session active verification, Zod schema validation, and database immutability.
 
 ---
 
@@ -183,9 +214,26 @@ my_room_ledger/
 │   │   │   ├── ui/                 # Buttons, Dialogs, Cards, Tables, Inputs
 │   │   │   ├── dashboard/          # Revenue charts, P&L graphs, Occupancy cards
 │   │   │   └── forms/              # Onboarding, Billing, Submeter entry forms
-│   │   ├── lib/                    # API Client, Auth storage, Utilities
-│   │   │   ├── api.client.ts
-│   │   │   └── auth.store.ts
+│   │   ├── lib/                    # API Client, Query Client, Error Normalizer
+│   │   │   ├── api/
+│   │   │   │   ├── api-client.ts         # Central Axios client instance & interceptors
+│   │   │   │   ├── token-refresh.ts      # Single-refresh mutex & queue management
+│   │   │   │   └── error-normalizer.ts   # Unified ApiError class & fieldErrors parser
+│   │   │   └── query/
+│   │   │       └── query-client.ts       # TanStack Query Client configuration
+│   │   ├── services/
+│   │   │   └── api/                      # Orval-generated API DTOs & service methods
+│   │   │       ├── auth.service.ts
+│   │   │       ├── building.service.ts
+│   │   │       ├── billing.service.ts
+│   │   │       └── document.service.ts
+│   │   ├── hooks/
+│   │   │   └── queries/                  # Custom TanStack Query & Mutation hooks
+│   │   │       ├── useBuildingsQuery.ts
+│   │   │       ├── usePayRentMutation.ts
+│   │   │       └── useTenantProfileQuery.ts
+│   │   ├── store/
+│   │   │   └── auth.store.ts             # Client UI auth state (User profile metadata)
 │   │   └── styles/
 │   │       └── globals.css         # Tailwind CSS imports
 │   ├── next.config.js              # next-pwa plugin configuration

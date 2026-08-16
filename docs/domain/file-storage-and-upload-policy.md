@@ -1,8 +1,8 @@
 # Global File-Storage, Upload Policy & Security-First Storage Cost-Optimization Specification
 
 **Status:** Active & Locked ✅  
-**Upstream:** [docs/business-rules.md](business-rules.md) (`BR-10`, `BR-18`), [docs/02-functional-requirements.md](02-functional-requirements.md) (`FR-131`–`FR-136`), [docs/03-non-functional-requirements.md](03-non-functional-requirements.md) (`NFR-03`, `NFR-27`), [database-schema.md](../database-schema.md)  
-**Downstream:** [api-contracts.md](../api-contracts.md), [docs/rbac-matrix.md](rbac-matrix.md), Stage 05 (Database Design), Stage 06 (API Design), Stage 07 (Frontend Architecture), Stage 13 (Implementation)  
+**Upstream:** [docs/governance/business-rules.md](../governance/business-rules.md) (`BR-10`, `BR-18`), [docs/stages/02-functional-requirements.md](../stages/02-functional-requirements.md) (`FR-131`–`FR-136`), [docs/stages/03-non-functional-requirements.md](../stages/03-non-functional-requirements.md) (`NFR-03`, `NFR-27`), [database-schema.md](../technical/database-schema.md)  
+**Downstream:** [api-contracts.md](../technical/api-contracts.md), [docs/governance/rbac-matrix.md](../governance/rbac-matrix.md), Stage 05 Database Design, Stage 06 API Design, Stage 07 Frontend Architecture, Stage 13 Implementation  
 **Single Source of Truth:** This document is the **sole authoritative reference** for file size limits, MIME type validation, presigned direct-to-R2 upload workflows, storage cost-optimization mechanisms, data retention pipelines, and zero-compromise security governance across the application.
 
 ---
@@ -133,5 +133,5 @@ Storage cost optimization is achieved through 4 complementary technical strategi
 
 Whenever new document types, storage optimization parameters, or upload rules are introduced in future stages:
 1. **Update ONLY this document** (`file-storage-and-upload-policy.md`).
-2. Reference this document from `docs/business-rules.md` (`BR-18`), `docs/02-functional-requirements.md`, `docs/03-non-functional-requirements.md`, and `MASTER.md`.
+2. Reference this document from `docs/governance/business-rules.md` (`BR-18`), `docs/stages/02-functional-requirements.md`, `docs/stages/03-non-functional-requirements.md`, and `MASTER.md`.
 3. **Do NOT duplicate file validation logic or storage formulas** across other documents.

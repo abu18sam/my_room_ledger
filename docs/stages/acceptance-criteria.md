@@ -1,10 +1,9 @@
-# Stage 02 — Acceptance Criteria
+# Stage 02 — Testable Acceptance Criteria Specification
 
-**Status:** Confirmed & Locked ✅  
-**Date locked:** 2026-08-09  
+**Status:** Confirmed ✅ (Approved by User)  
 **Upstream:** [02-functional-requirements.md](02-functional-requirements.md)  
-**Downstream:** Stages 06 (API Design), 13–14 (Implementation & Tests)  
-**Workflow tracker:** [00-engineering-workflow.md](00-engineering-workflow.md)
+**Downstream:** Stage 03 NFRs  
+**Workflow tracker:** [../00-engineering-workflow.md](../00-engineering-workflow.md)
 
 Each criterion is independently testable. Integration tests (Stage 14) must cite AC IDs. All ACs are binding — any implementation deviating from an AC is a defect.
 
@@ -438,20 +437,6 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 
 ---
 
-## AC-119 — Building Occupancy & Stacked Navigation System
-
-**Requirements:** FR-119 – FR-130, BR-17.1 – BR-17.5, NFR-26, [`docs/building-occupancy.md`](building-occupancy.md), [`docs/frontend-navigation.md`](frontend-navigation.md)
-
-| ID | Criterion |
-|----|---|
-| **AC-119.1** | Given a room with $\ge 1$ assigned active tenants (`Tenant.status = ACTIVE`), the room status evaluates to `OCCUPIED`. Given a room with 0 active tenants, the room status evaluates to `VACANT`. |
-| **AC-119.2** | Given a floor with $\ge 1$ occupied room, the floor status evaluates to `OCCUPIED`. Given a floor where all rooms have 0 active tenants, the floor status evaluates to `VACANT`. Exposes `totalRooms`, `occupiedRooms`, `vacantRooms`, and `totalActiveTenants`. |
-| **AC-119.3** | Given a building with $\ge 1$ occupied room on any floor, overall building status evaluates to `OCCUPIED`. Given a building where all rooms across all floors have 0 active tenants, overall building status evaluates to `VACANT`. |
-| **AC-119.4** | The Building Details Page renders a stacked vertical representation of floors (`Floor Stack`) displaying floor numbers, `OCCUPIED` / `VACANT` badges, and occupied room counts. |
-| **AC-119.5** | Clicking a floor card in the Building Stack navigates to the Floor Details page, rendering floor metric cards (`Total Rooms`, `Occupied Rooms`, `Vacant Rooms`, `Total Active Tenants`) and horizontal room block cards (`[ Room 01 \| 2 Tenants ]`). |
-| **AC-119.6** | Hovering over a room block card displays a tooltip popover showing room capacity, base rent, and active tenant names preview (for Landlord / Admin roles). |
-| **AC-119.7** | Clicking a room block card navigates to the Room Details page displaying metadata, facilities, rent/electricity ledgers, payment history, and current active tenant profile cards. |
-| **AC-119.8** | Clicking an active tenant card on the Room Details page navigates to the Individual Tenant Details page, displaying only role-permitted fields. |
 | **AC-119.9** | A tenant whose status is `MOVED_OUT` in `TenancyHistory` does NOT keep a room marked as occupied. Historical move-out logs remain viewable in room history without mutating active occupancy. |
 | **AC-119.10** | A request by a `TENANT` user to view room details for any room ID other than their assigned room (`Tenant.currentRoomId`) is intercepted by `TenantRoomAccessGuard` and rejected with `HTTP 403 FORBIDDEN` (`ROOM_ACCESS_DENIED`). |
 
@@ -488,6 +473,23 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 | **AC-137.6** | Server-side `ZodValidationPipe` schema failures return `HTTP 400 BAD_REQUEST` with a standardized JSON error envelope containing a `fieldErrors[]` array (`field`, `message`, `errorCode`). Internal stack traces and DB queries are strictly hidden. |
 | **AC-137.7** | Even if frontend pre-validation is modified or disabled in the client browser runtime, the backend re-validates 100% of the request payload and state before performing database mutations. |
 | **AC-137.8** | NestJS `ZodValidationPipe` schema evaluation executes within $\le 10\text{ ms}$ (p95) per request under load tests. |
+
+---
+
+## AC-143 — Frontend API Architecture, State Management & Financial Idempotency
+
+**Requirements:** FR-143 – FR-148, BR-20.1 – BR-20.5, NFR-29
+
+| ID | Criterion |
+|----|---|
+| **AC-143.1** | All client API requests route exclusively through a central Axios client instance (`lib/api/api-client.ts`), automatically attaching standard headers, Bearer tokens, CSRF protection headers (`X-Requested-With`), and 15s timeouts. |
+| **AC-143.2** | When an Access Token expires (HTTP 401 `TOKEN_EXPIRED`), the Axios response interceptor dispatches exactly **one** `/api/v1/auth/refresh` request using a mutex (`isRefreshing`). Parallel failing requests are queued in `failedQueue[]` and resolved upon refresh without component error flashes. |
+| **AC-143.3** | When an API request returns `error: "SESSION_REVOKED"` or `errorCode: "ERR-1002"`, the interceptor bypasses token refresh, purges client auth state (`useAuthStore`), cancels pending TanStack queries, redirects the browser to `/login?reason=session_revoked`, and displays a toast message. |
+| **AC-143.4** | Server-state management is governed exclusively by **TanStack Query v5** (`staleTime: 5m`, `gcTime: 15m`). Components do NOT maintain duplicate server state in local React state. |
+| **AC-143.5** | Executing a financial mutation (e.g. recording a ₹2,500 rent payment) automatically invalidates target query keys (`queryClient.invalidateQueries()`) across ledger, room, building revenue, and dashboard metrics. |
+| **AC-143.6** | Non-idempotent financial mutation requests (`POST`, `PUT`, `PATCH` for payments and expenses) automatically inject a unique UUIDv7 `Idempotency-Key` header (`Idempotency-Key: idemp_<uuidv7>`). |
+| **AC-143.7** | Automatic client-side HTTP retries in response interceptors are strictly disabled for non-idempotent methods unless an `Idempotency-Key` header is present, guaranteeing zero duplicate transactions on network blips. |
+| **AC-143.8** | Token rotation completes within $\le 150\text{ ms}$ (p95), and session revocation ejection completes within $\le 50\text{ ms}$ under performance benchmarks. |
 
 ---
 

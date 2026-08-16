@@ -160,7 +160,7 @@ To satisfy all performance, responsiveness, and security-first mandates, the sys
    - **Input Validation (STRICT MANDATE)**: **Every API endpoint input** (request body, query params, route params) MUST pass through a **Zod schema** via `ZodValidationPipe` before reaching any Controller or Service. Joi is **not used** — Zod is the exclusive validation library.
    - **Validation Failure**: Returns `HTTP 400 VALIDATION_ERROR` with structured field-level error details.
    - **Security Middleware Stack** (applied globally in order): Helmet.js → CORS lockdown → `@nestjs/throttler` rate limiting → JWT Auth Guard → Roles Guard → ZodValidationPipe.
-   - **Authentication**: JWT stateless authentication — access tokens (10-min TTL, in-memory) + refresh tokens (7-day TTL, `HttpOnly` cookie) with **Argon2id password hashing** (64MB RAM, 3 iterations, 4 parallelism). All token lifecycles governed by [`docs/ttl-registry.md`](ttl-registry.md). All primary keys use **UUIDv7** time-ordered identifiers.
+   - **Authentication**: JWT stateless authentication — access tokens (10-min TTL, in-memory) + refresh tokens (7-day TTL, `HttpOnly` cookie) with **Argon2id password hashing** (64MB RAM, 3 iterations, 4 parallelism). All token lifecycles governed by [`docs/governance/ttl-registry.md`](../governance/ttl-registry.md). All primary keys use **UUIDv7** time-ordered identifiers.
    - **Deployment Target**: Render / Railway.
 
 3. **[NEW REQUIREMENT ADDITION] PostgreSQL with Prisma ORM**:

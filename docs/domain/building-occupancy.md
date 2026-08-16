@@ -1,8 +1,8 @@
 # Building → Floor → Room Occupancy Specification
 
 **Status:** Active & Locked ✅  
-**Upstream:** [docs/business-rules.md](business-rules.md) (`BR-05`, `BR-08`, `BR-17`), [docs/02-functional-requirements.md](02-functional-requirements.md) (`FR-119`–`FR-122`), [database-schema.md](../database-schema.md)  
-**Downstream:** [docs/frontend-navigation.md](frontend-navigation.md) (UI presentation & responsive rendering), Stage 05 (Database Design), Stage 06 (API Design)  
+**Upstream:** [docs/governance/business-rules.md](../governance/business-rules.md) (`BR-05`, `BR-08`, `BR-17`), [docs/stages/02-functional-requirements.md](../stages/02-functional-requirements.md) (`FR-119`–`FR-122`), [database-schema.md](../technical/database-schema.md)  
+**Downstream:** [frontend-navigation.md](frontend-navigation.md) (UI presentation & responsive rendering), Stage 05 Database Design, Stage 06 API Design  
 **Single Source of Truth:** This document is the **sole authoritative reference** for all domain business logic, active tenant assignment constraints, room/floor/building occupancy status calculations (`OCCUPIED` vs `VACANT`), metric aggregations, and historical isolation rules across the application.
 
 ---
@@ -126,5 +126,5 @@ The occupancy calculation system is engineered to scale seamlessly:
 
 Whenever new business rules regarding occupancy calculations, tenant assignment invariants, or structural aggregation metrics are introduced in future stages:
 1. **Update ONLY this document** (`building-occupancy.md`) with the authoritative logic.
-2. Cross-reference this document from `docs/business-rules.md` (`BR-17`), `docs/02-functional-requirements.md`, and `docs/frontend-navigation.md`.
+2. Cross-reference this document from `docs/governance/business-rules.md` (`BR-17`), `docs/stages/02-functional-requirements.md`, and `docs/domain/frontend-navigation.md`.
 3. **Do NOT duplicate detailed calculation formulas** across other documents.

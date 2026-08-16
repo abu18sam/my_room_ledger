@@ -37,6 +37,10 @@
 | **Country Code Metadata** | C / R / U / D | C / R / U / D | R | R | Read-only for public/auth; managed by Admin & Super Admin via `/api/v1/admin/country-codes`. Update/Disable/Delete blocked if referenced by ≥ 1 user (`COUNTRY_CODE_IN_USE`). |
 | **Power Supply Company** | C / R / U / D | C / R / U / D | R | — | Deletion blocked if company linked to ≥1 building (`COMPANY_IN_USE`). |
 | **Building Infrastructure** | C / R / U / D | C / R / U / D | C / R / U / D (Own) | — | Landlord strictly limited to own registered buildings. |
+| **Building Occupancy Stack** | R | R | R (Own Buildings) | — | Stacked view of floors & building occupancy metrics (`building-occupancy.md`, `frontend-navigation.md`). Tenants forbidden. |
+| **Floor Details & Room Blocks** | R | R | R (Own Buildings) | — | Floor KPI metrics, room block cards & hover tooltips (`frontend-navigation.md`). Tenants forbidden. |
+| **Room Details Page** | R | R | R (Own Buildings) | R (Assigned Room Only) | Tenants restricted to own assigned room (`TenantRoomAccessGuard`, `frontend-navigation.md`). |
+| **Active Tenant Profile Cards** | R | R | R (Own Buildings) | R (Assigned Room Co-Tenants) | Tenants can view active co-tenants in assigned room; forbidden outside. |
 | **Power Supplier Switch** | C / U | C / U | C / U (Own) | — | Requires zero open master bills (`PENDING_SUPPLIER_BILLS_EXIST`). |
 | **Building Power Connections (History)** | R | R | R | — | Inserted automatically on supplier switch; **Insert-Only (No U/D)**. |
 | **Floors, Rooms & Facilities** | C / R / U / D | C / R / U / D | C / R / U / D (Own) | R (Assigned Room) | Tenants view assigned room infrastructure read-only. |

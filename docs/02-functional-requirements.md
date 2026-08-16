@@ -399,6 +399,38 @@ Define numbered, testable functional requirements (**FR-xx**) for the **My Room 
 | FR-101 – FR-106 | AC-101 | Flexible Billing Cycles & Electricity Reconciliation Engine |
 | FR-107 – FR-112 | AC-107 | Tenant Electricity Payment Cutoff & Master Cycle Allocation Rules |
 | FR-113 – FR-118 | AC-113 | Centralized Session Validation & Revocation Enforcement |
+| FR-119 – FR-130 | AC-119 | Building Occupancy & Stacked Navigation Architecture |
+
+---
+
+### 3.8 Building Occupancy & Stacked Navigation Architecture
+
+#### 3.8.1 Occupancy Derivation & Aggregation Rules
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-119** | A room's occupancy status is derived **strictly from active tenant assignments** (`Tenant.status = ACTIVE` AND `Tenant.currentRoomId = room.id`). A room with $\ge 1$ active tenant is `OCCUPIED`; a room with 0 active tenants is `VACANT`. | BR-17.1, docs/building-occupancy.md |
+| **FR-120** | A floor's occupancy status is `OCCUPIED` if $\ge 1$ room on that floor is `OCCUPIED`; `VACANT` if ALL rooms on that floor are `VACANT`. The backend exposes `totalRooms`, `occupiedRooms`, `vacantRooms`, and `totalActiveTenants` for each floor. | BR-17.2, docs/building-occupancy.md |
+| **FR-121** | A building's occupancy status is `OCCUPIED` if $\ge 1$ room across any floor is `OCCUPIED`; `VACANT` if ALL rooms across ALL floors are `VACANT`. Exposes `totalFloors`, `totalRooms`, `occupiedRooms`, `vacantRooms`, `occupiedFloors`, `vacantFloors`, and `totalActiveTenants`. | BR-17.2, docs/building-occupancy.md |
+| **FR-122** | Historical tenants who have checked out (`status = MOVED_OUT` in `TenancyHistory`) MUST NOT keep a room marked as occupied. Historical tenant logs remain accessible for audit, billing, and room history only. | BR-17.1, docs/building-occupancy.md |
+
+#### 3.8.2 Stacked UI Navigation & Page Hierarchy
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-123** | The **Building Details Page** MUST render a visual stacked representation of floors (`Floor Stack`) from top floor down to Ground Floor, displaying floor numbers, occupancy badges (`OCCUPIED` \| `VACANT`), and room count pills. Responsive across Mobile ($<640\text{px}$ stack), Tablet ($640\text{px}-1024\text{px}$ grid), and Desktop ($>1024\text{px}$ multi-column). | BR-17.4, docs/frontend-navigation.md |
+| **FR-124** | Clicking a floor card in the Building Stack navigates to the **Floor Details Page**, displaying building header, selected floor number, floor occupancy badge, KPI metric cards, and horizontal room block cards (`[ Room 01 \| 2 Tenants ]`). | BR-17.4, docs/frontend-navigation.md |
+| **FR-125** | Room block cards on the Floor Details page MUST support hover tooltips (bottom-sheet popover on mobile) displaying max capacity, base rent, and active tenant names preview (for Landlord/Admin roles). | BR-17.4, docs/frontend-navigation.md |
+| **FR-126** | Clicking a room block card navigates to the **Room Details Page**, displaying building, floor, room number, occupancy status, facilities, kitchen, bathroom/toilet config, electricity ledgers, room rent ledgers, payment history, and current active tenant cards. | BR-17.4, docs/frontend-navigation.md |
+| **FR-127** | Active tenants on the Room Details page are displayed as profile cards (photo, full name, check-in date). Clicking a card navigates to the Individual Tenant Details page. | BR-17.4, docs/frontend-navigation.md |
+
+#### 3.8.3 Tenant Role Access Isolation
+
+| ID | Requirement | Source |
+|----|---|---|
+| **FR-128** | A `TENANT` role user can ONLY access the Room Details page for their currently assigned room (`Tenant.currentRoomId`). | BR-17.5, docs/frontend-navigation.md |
+| **FR-129** | `TENANT` users CANNOT browse other buildings, floors, rooms, or tenant details outside their assigned room. Multiple tenants assigned to the same room can view basic profile cards of active room-mates. | BR-17.5, docs/frontend-navigation.md |
+| **FR-130** | Any unauthorized request by a tenant to access unassigned rooms, floors, or buildings MUST be intercepted and rejected by NestJS `TenantRoomAccessGuard` with `HTTP 403 FORBIDDEN` (`ROOM_ACCESS_DENIED`). | BR-17.5, docs/frontend-navigation.md |
 
 ---
 

@@ -51,6 +51,7 @@
 | **AuditLog** | An immutable, insert-only database table (`audit_logs`) recording every state-changing API operation and security event with acting user, target entity, timestamp, IP, User-Agent, and metadata. | BR-16.1, FR-93, AC-89.5, docs/audit-logging.md |
 | **Balanced** | State when tenant electricity collections exactly match master supplier bill ($\text{Variance} = 0$). | BR-03.3, FR-52c, AC-45.12 |
 | **Bill Serial Number** | Unique invoice/bill number printed on a physical utility bill issued by a power company. Unique per power company (`@@unique([powerCompanyId, billSerialNumber])`). | BR-13.4, FR-50, AC-45.6a |
+| **Building Occupancy Stack** | Stacked vertical visual representation of building floors (top floor down to Ground Floor) in the Building Details page showing floor numbers, occupancy badges (`OCCUPIED` \| `VACANT`), and room count summaries. | BR-17.4, FR-123, AC-119.4, docs/frontend-navigation.md |
 | **BuildingPowerConnection** | Historical audit model tracking every power supplier association for a building over time, with `startDate`, `endDate`, and `status` (`ACTIVE` \| `TERMINATED`). | BR-13.9, FR-22c, AC-22.10 |
 | **Carry-Forward Balance** | Informal term for unpaid ledger amounts persisting across billing cycles. Not physically transferred — computed dynamically as `SUM(amount − amountPaid)` across all non-PAID cycles for a room. | BR-14.4, FR-41c, AC-36.17 |
 | **Common Electricity Load** | Electricity consumed by building common areas (lights, submersible water pumps) paid by landlord from surplus or rental income. | BR-03.2, FR-52d, AC-45.13 |
@@ -62,7 +63,9 @@
 | **Error Code** | Machine-readable SCREAMING_SNAKE_CASE string uniquely identifying an error condition (e.g. `COMPANY_IN_USE`, `PENDING_SUPPLIER_BILLS_EXIST`). Enables precise client error routing. | BR-15.1, FR-82, AC-82.1, docs/error-handling.md |
 | **Error Envelope** | Standardized JSON structure returned for all non-2xx API responses: `{ statusCode, error, message, metadata }` (or `details` for validation errors). | BR-15.1, FR-82, AC-82.1, docs/error-handling.md |
 | **Flexible Billing Cycle** | Non-calendar billing cycle structure allowing each room to start/end on any day ($1..31$), with room rent, room electricity, and building master bill cycles operating on independent schedules. | BR-02, FR-101, AC-101.1, docs/billing-and-reconciliation.md |
+| **Floor Occupancy State** | Aggregated occupancy status of a floor (`OCCUPIED` if $\ge 1$ room is occupied; `VACANT` if ALL rooms are vacant). | BR-17.2, FR-120, AC-119.2, docs/building-occupancy.md |
 | **Force Logout** | Administrative action allowing a Super Admin or Admin to forcefully invalidate active user sessions (`UserSession` records purged from DB) based on role hierarchy. | BR-01.5, FR-89–91, AC-89.1–4 |
+| **Frontend Responsive Navigation** | Frontend presentation architecture adapting Building Stack, Floor Details, Room Blocks, and Tenant Cards across Mobile ($<640\text{px}$), Tablet ($640-1024\text{px}$), and Desktop ($>1024\text{px}$) viewports. | BR-17.4, FR-123–127, NFR-26, docs/frontend-navigation.md |
 | **Header Notification Panel** | Admin frontend top-header bell icon displaying real-time alerts for pending password reset requests. | BR-11.2, FR-P06, AC-P05.1 |
 | **Hybrid Floor** | Floor layout containing both rooms with private attached bathrooms and rooms utilizing shared floor bathrooms. | BR-06, AC-22.6 |
 | **Invitation Link Token** | Single-use 30-minute token sent to new users for onboarding registration, invalidated immediately upon use (`usedAt = now()`). | BR-11, FR-P10, docs/ttl-registry.md |
@@ -71,6 +74,7 @@
 | **Master Cycle Allocation** | The derived assignment of a tenant payment transaction to a specific building master electricity billing cycle window based on payment date timestamp. | BR-03.5, FR-107, AC-107.1, docs/billing-and-reconciliation.md |
 | **Non-Functional Requirement** | System quality constraint (`NFR-01` to `NFR-20` in `docs/03-non-functional-requirements.md`) governing security, immutability, performance SLAs, scalability, and error contracts. | docs/03-non-functional-requirements.md |
 | **Non-Last Transaction Lock** | Security restriction (`HTTP 409 NON_LAST_TRANSACTION_UPDATE_RESTRICTED`) blocking edits to older (non-latest) payment transaction records to maintain financial ledger history integrity. | BR-14.7, FR-99, AC-97.2, docs/error-handling.md |
+| **Occupied Status** | Occupancy classification indicating $\ge 1$ active assigned tenant (`Tenant.status = ACTIVE`) currently living in a room, floor, or building. | BR-17.1, FR-119, AC-119.1, docs/building-occupancy.md |
 | **One-Time Token Invalidation** | Security rule requiring single-use tokens (invitations, password resets, temp passwords) to be immediately invalidated upon consumption to prevent reuse. | BR-11, NFR-01, docs/ttl-registry.md |
 | **OVERDUE** | A `PaymentStatus` enum value assigned when `currentDate > BillingCycle.cycleEndDate` and the ledger is still `UNPAID` or `PARTIALLY_PAID`. No grace period applies. An OVERDUE ledger can still receive payments and transition to `PAID` upon full settlement. | BR-14.3, FR-41b, AC-36.15 |
 | **Pass-Through Cost** | Electricity payments collected from tenants and remitted to power supplier. Excluded from landlord net profit. | BR-03.1, FR-52, AC-45.8 |
@@ -87,6 +91,7 @@
 | **Response Time SLA (p95)** | Performance target requiring 95% of standard API requests to respond within $\le 200\text{ ms}$ and complex P&L aggregations within $\le 400\text{ ms}$. | NFR-10, docs/03-non-functional-requirements.md |
 | **Revocation Overrides TTL** | Invariant guaranteeing that an active DB session revocation immediately invalidates any bearer access token issued for that session, regardless of remaining TTL. | BR-16.5, FR-114, AC-113.3 |
 | **Role Hierarchy Violation** | Authorization block (`HTTP 403 FORBIDDEN`, error code: `ROLE_HIERARCHY_VIOLATION`) triggered when an Admin attempts to execute force-logout or administrative operations on a Super Admin or fellow Admin user. | BR-01.5, FR-91, AC-89.3, docs/error-handling.md |
+| **Room Block Card** | Horizontal interactive UI card on the Floor Details page rendering room label, occupancy status, tenant count badge, and hover tooltips. | BR-17.4, FR-124, AC-119.5, docs/frontend-navigation.md |
 | **Session Revocation Enforcement** | Security mechanism (`SessionValidationGuard`) verifying database active session status (`user_sessions.isRevoked = false`) on every protected API call. | BR-16.5, FR-113–118, AC-113 |
 | **SESSION_REVOKED Error** | Standardized `HTTP 401 UNAUTHORIZED` error envelope (`ERR-1002`) returned when an API request is attempted on a revoked session. | BR-16.5, docs/error-handling.md §4.5, API §0.3 |
 | **Shared Bathroom / Toilet** | Floor-level shared sanitation facility using standardized numbering (`Bath XY`, `Toilet XY`). | BR-06, BR-07, FR-26, AC-22.5 |
@@ -97,12 +102,14 @@
 | **Surplus/Deficit Variance** | The financial difference ($\text{TenantCollections} - \text{MasterBillPaid}$). Positive variance creates a Surplus (`surplusAmount`); negative variance creates a Landlord Deficit (`deficitAmount`). Pass-through funds strictly excluded from Net Profit. | BR-03.1, BR-03.3, FR-104, AC-101.3, docs/billing-and-reconciliation.md |
 | **Tenancy Snapshot** | Immutable historical record locking active room tenants during a billing cycle, preventing bill mutation on move-out. | BR-08, FR-39, AC-36.4 |
 | **Tenant** | Resident / Occupant. Strictly read-only user accessing own room stay history, payment ledgers, and complaint submission. | BR-01.1, FR-30–35, AC-30 |
+| **Tenant Access Isolation** | Backend security rule (`TenantRoomAccessGuard`) restricting `TENANT` role users to access ONLY the Room Details page of their assigned room (`Tenant.currentRoomId`). | BR-17.5, FR-128–130, AC-119.10, docs/frontend-navigation.md |
 | **Tenant Collection Aggregation** | The sum of actual cash collected (`PaymentTransaction.amountPaid`) from tenants across all room electricity ledgers whose cycle intersects the building master bill window `[billCycleStart, billCycleEnd]`. | BR-03.5, FR-103, AC-101.2, docs/billing-and-reconciliation.md |
 | **Token Lifecycle Governance** | Policy requiring all token-based features to define TTL, transport mechanism, and one-time invalidation rules in `docs/ttl-registry.md` before implementation. | docs/ttl-registry.md |
 | **Total Units Consumed** | Total building-level electricity consumption (kWh) recorded on a `SupplierMasterBill`. Used to cross-verify against the sum of room submeter consumption readings. | BR-13.6, FR-50, AC-45.6 |
 | **TTL Registry** | Dedicated single-source-of-truth governance specification (`docs/ttl-registry.md`) standardizing all 8 token lifecycles, TTL durations, and invalidation rules across the application. | docs/ttl-registry.md |
 | **UUID Primary Key Strategy** | The mandatory system-wide identifier policy replacing sequential integer auto-increment keys with 128-bit RFC 4122 non-sequential UUID strings (`gen_random_uuid()` / `@default(uuid()) @db.Uuid`) across all 22 database entities. Prevents resource enumeration and IDOR attacks. | BR-10.4, FR-88, AC-82.12 |
 | **UUIDv7 Primary Key Strategy** | Mandatory primary key standard across all 24 database entities, embedding a 48-bit millisecond timestamp in high-order bits for time-ordered B-Tree index locality and high-throughput INSERT efficiency. | BR-10.4, NFR-11, FR-88, AC-82.12 |
+| **Vacant Status** | Occupancy classification indicating zero (`0`) active assigned tenants currently living in a room, floor, or building. | BR-17.1, FR-119, AC-119.1, docs/building-occupancy.md |
 
 
 

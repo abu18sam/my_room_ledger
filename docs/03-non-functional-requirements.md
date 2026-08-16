@@ -78,6 +78,7 @@
 | NFR ID | Requirement | Metric / Constraint Target | Verification Method | Source Rule |
 |---|---|---|---|---|
 | **NFR-25** | **Country Code Integrity & Seeding Latency** | Database-level foreign key constraint (`ON DELETE RESTRICT`) guarantees 0 orphan phone records. Reusable seed execution from `data/country-codes.json` completes in $< 500\text{ ms}$ during DB deployment. Deleting, disabling, or updating in-use country codes guarantees strict HTTP 409 rejection. | Prisma Migration & Integration Test | BR-12.2, BR-12.3, FR-35 |
+| **NFR-26** | **Occupancy Aggregation SLA & RBAC Isolation** | Stacked building and floor occupancy aggregation queries complete within $\le 100\text{ ms}$ (p95) for portfolios up to 50 floors / 500 rooms. 100% backend guard rejection (`HTTP 403 FORBIDDEN`) on any unauthorized tenant cross-room navigation attempt. Responsive layout adapts seamlessly across Mobile ($<640\text{px}$), Tablet ($640\text{px}-1024\text{px}$), and Desktop ($>1024\text{px}$). | Performance Profiling & Responsive UX Audits | BR-17.3, BR-17.5, docs/building-occupancy.md, docs/frontend-navigation.md |
 
 ---
 
@@ -92,6 +93,7 @@
 | **NFR-17 – NFR-18** | Error Handling & Rates | Global NestJS Exception Filter, ThrottlerGuard |
 | **NFR-19 – NFR-20** | Quality & Governance | Jest Unit/Integration Tests, Git Workflow |
 | **NFR-25** | Data Integrity & Seeding | PostgreSQL FK Constraints (`ON DELETE RESTRICT`), Prisma Seed |
+| **NFR-26** | Occupancy & RBAC Isolation | PostgreSQL Composite Index (`@@index([currentRoomId, status])`), `TenantRoomAccessGuard` |
 
 ---
 

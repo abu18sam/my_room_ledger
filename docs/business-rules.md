@@ -401,6 +401,32 @@ OVERDUE
 - **Instant Sub-500ms Revocation Propagation**: When an administrative force logout (`FORCE_LOGOUT_USER` / `FORCE_LOGOUT_ROLE`) is executed, ALL active session records for target user(s) are revoked/purged within $\le 500\text{ ms}$.
 - **Frontend Auto-Logout Reaction**: Upon receiving `HTTP 401 SESSION_REVOKED`, frontend PWA client interceptors MUST immediately clear all local token storage, alert the user ("Your session has been terminated by an administrator. Please log in again."), and redirect to `/login?session_revoked=true`.
 
+---
+
+### BR-17: Building, Floor, Room Occupancy Engine & Stacked Navigation System Architecture
+Authoritative governance rules for calculating structural occupancy, executing stacked UI navigation, responsive viewports, and enforcing tenant RBAC isolation. Detailed in [`docs/building-occupancy.md`](building-occupancy.md) (Domain occupancy rules source of truth) and [`docs/frontend-navigation.md`](frontend-navigation.md) (UI presentation & responsive navigation source of truth).
+
+#### BR-17.1 — Active Tenant Occupancy Derivation Rule
+- **Active Assignment Invariant**: A room's occupancy status is derived **strictly and exclusively** from active tenant assignments (`Tenant.status = ACTIVE` AND `Tenant.currentRoomId = room.id`).
+- **Historical Data Isolation**: Past tenants who have checked out (`status = MOVED_OUT` in `TenancyHistory`) do NOT make a room occupied. A room with 0 active assigned tenants is strictly `VACANT` regardless of past tenant count.
+
+#### BR-17.2 — Hierarchical Occupancy Aggregation Formulas
+- **Room Status**: `OCCUPIED` if active tenants $\ge 1$; `VACANT` if active tenants $= 0$.
+- **Floor Status**: `OCCUPIED` if $\ge 1$ room on that floor is `OCCUPIED`; `VACANT` if ALL rooms on that floor are `VACANT`. Exposes `totalRooms`, `occupiedRooms`, `vacantRooms`, and `totalActiveTenants`.
+- **Building Status**: `OCCUPIED` if $\ge 1$ room in any floor is `OCCUPIED`; `VACANT` if ALL rooms across ALL floors are `VACANT`. Exposes `totalFloors`, `totalRooms`, `occupiedRooms`, `vacantRooms`, `occupiedFloors`, `vacantFloors`, and `totalActiveTenants`.
+
+#### BR-17.3 — Backend Dynamic Aggregation Source of Truth
+- Occupancy metrics are calculated dynamically via database queries (`COUNT` with index `@@index([currentRoomId, status])`) during API execution to eliminate state drift.
+- Any tenant room assignment, move-out, deactivation, or room creation immediately updates query results.
+
+#### BR-17.4 — Stacked UI Navigation Hierarchy
+- Navigation follows a strict 6-tier hierarchy: `Building Details (Floor Stack)` $\rightarrow$ `Floor Details (Room Block Cards)` $\rightarrow$ `Room Details` $\rightarrow$ `Active Tenant Cards` $\rightarrow$ `Individual Tenant Details`.
+
+#### BR-17.5 — Strict Tenant RBAC Access Isolation
+- `TENANT` users can ONLY access the Room Details page for their currently assigned room (`Tenant.currentRoomId`).
+- Browsing unrelated buildings, floors, rooms, or tenant profiles outside their room is strictly forbidden and rejected backend-side by `TenantRoomAccessGuard` (`HTTP 403 FORBIDDEN`, `ROOM_ACCESS_DENIED`). Co-tenants assigned to the same room can view basic profile cards of active room-mates.
+
+
 
 
 

@@ -438,6 +438,25 @@ Each criterion is independently testable. Integration tests (Stage 14) must cite
 
 ---
 
+## AC-119 — Building Occupancy & Stacked Navigation System
+
+**Requirements:** FR-119 – FR-130, BR-17.1 – BR-17.5, NFR-26, [`docs/building-occupancy.md`](building-occupancy.md), [`docs/frontend-navigation.md`](frontend-navigation.md)
+
+| ID | Criterion |
+|----|---|
+| **AC-119.1** | Given a room with $\ge 1$ assigned active tenants (`Tenant.status = ACTIVE`), the room status evaluates to `OCCUPIED`. Given a room with 0 active tenants, the room status evaluates to `VACANT`. |
+| **AC-119.2** | Given a floor with $\ge 1$ occupied room, the floor status evaluates to `OCCUPIED`. Given a floor where all rooms have 0 active tenants, the floor status evaluates to `VACANT`. Exposes `totalRooms`, `occupiedRooms`, `vacantRooms`, and `totalActiveTenants`. |
+| **AC-119.3** | Given a building with $\ge 1$ occupied room on any floor, overall building status evaluates to `OCCUPIED`. Given a building where all rooms across all floors have 0 active tenants, overall building status evaluates to `VACANT`. |
+| **AC-119.4** | The Building Details Page renders a stacked vertical representation of floors (`Floor Stack`) displaying floor numbers, `OCCUPIED` / `VACANT` badges, and occupied room counts. |
+| **AC-119.5** | Clicking a floor card in the Building Stack navigates to the Floor Details page, rendering floor metric cards (`Total Rooms`, `Occupied Rooms`, `Vacant Rooms`, `Total Active Tenants`) and horizontal room block cards (`[ Room 01 \| 2 Tenants ]`). |
+| **AC-119.6** | Hovering over a room block card displays a tooltip popover showing room capacity, base rent, and active tenant names preview (for Landlord / Admin roles). |
+| **AC-119.7** | Clicking a room block card navigates to the Room Details page displaying metadata, facilities, rent/electricity ledgers, payment history, and current active tenant profile cards. |
+| **AC-119.8** | Clicking an active tenant card on the Room Details page navigates to the Individual Tenant Details page, displaying only role-permitted fields. |
+| **AC-119.9** | A tenant whose status is `MOVED_OUT` in `TenancyHistory` does NOT keep a room marked as occupied. Historical move-out logs remain viewable in room history without mutating active occupancy. |
+| **AC-119.10** | A request by a `TENANT` user to view room details for any room ID other than their assigned room (`Tenant.currentRoomId`) is intercepted by `TenantRoomAccessGuard` and rejected with `HTTP 403 FORBIDDEN` (`ROOM_ACCESS_DENIED`). |
+
+---
+
 ## Gate
 
 **Stage 02 Confirmed & Locked ✅** (Approved by User)

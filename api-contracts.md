@@ -617,6 +617,153 @@ Request → Helmet → CORS → Throttler → JWT Auth Guard → Roles Guard →
   }
   ```
 
+### `GET /api/v1/buildings/{buildingId}/occupancy-stack`
+- **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN`
+- **Purpose**: Retrieve stacked floor visual representation and aggregated building-wide occupancy metrics.
+- **Response (200 OK)**:
+  ```json
+  {
+    "buildingId": "b1111111-1111-4111-8111-111111111111",
+    "buildingName": "Sunshine Heights",
+    "overallOccupancyStatus": "OCCUPIED",
+    "metrics": {
+      "totalFloors": 3,
+      "totalRooms": 10,
+      "occupiedRooms": 8,
+      "vacantRooms": 2,
+      "occupiedFloors": 2,
+      "vacantFloors": 1,
+      "totalActiveTenants": 12,
+      "occupancyRatePercentage": 80.0
+    },
+    "stackedFloors": [
+      {
+        "floorId": "f2222222-2222-4222-8222-222222222222",
+        "floorNumber": 2,
+        "name": "Floor 2",
+        "occupancyStatus": "OCCUPIED",
+        "totalRooms": 3,
+        "occupiedRooms": 2,
+        "vacantRooms": 1,
+        "totalActiveTenants": 3
+      },
+      {
+        "floorId": "f1111111-1111-4111-8111-111111111111",
+        "floorNumber": 1,
+        "name": "Floor 1",
+        "occupancyStatus": "OCCUPIED",
+        "totalRooms": 4,
+        "occupiedRooms": 4,
+        "vacantRooms": 0,
+        "totalActiveTenants": 6
+      },
+      {
+        "floorId": "f0000000-0000-4000-8000-000000000000",
+        "floorNumber": 0,
+        "name": "Floor 0 (Ground Floor)",
+        "occupancyStatus": "VACANT",
+        "totalRooms": 3,
+        "occupiedRooms": 0,
+        "vacantRooms": 3,
+        "totalActiveTenants": 0
+      }
+    ]
+  }
+  ```
+
+### `GET /api/v1/floors/{floorId}/details`
+- **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN`
+- **Purpose**: Retrieve floor KPI metrics and horizontal room block card models for rendering the Floor Details page.
+- **Response (200 OK)**:
+  ```json
+  {
+    "buildingId": "b1111111-1111-4111-8111-111111111111",
+    "buildingName": "Sunshine Heights",
+    "floorId": "f1111111-1111-4111-8111-111111111111",
+    "floorNumber": 1,
+    "floorName": "Floor 1",
+    "occupancyStatus": "OCCUPIED",
+    "metrics": {
+      "totalRooms": 3,
+      "occupiedRooms": 2,
+      "vacantRooms": 1,
+      "totalActiveTenants": 3
+    },
+    "roomBlocks": [
+      {
+        "roomId": "r1111111-1111-4111-8111-111111111111",
+        "roomNumber": "Room 11",
+        "occupancyStatus": "OCCUPIED",
+        "activeTenantsCount": 2,
+        "occupancyType": "DOUBLE",
+        "baseRentAmount": 10000.00,
+        "bathroomType": "PRIVATE_ATTACHED",
+        "activeTenantsPreview": ["Ramesh Kumar", "Suresh Sharma"]
+      },
+      {
+        "roomId": "r2222222-2222-4222-8222-222222222222",
+        "roomNumber": "Room 12",
+        "occupancyStatus": "VACANT",
+        "activeTenantsCount": 0,
+        "occupancyType": "SINGLE",
+        "baseRentAmount": 7500.00,
+        "bathroomType": "SHARED",
+        "activeTenantsPreview": []
+      }
+    ]
+  }
+  ```
+
+### `GET /api/v1/rooms/{roomId}/details`
+- **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN` | `TENANT` (Assigned Room Only)
+- **Purpose**: Retrieve full room metadata, current active tenant cards, rent/electricity ledgers, and payment history. Protected by `TenantRoomAccessGuard`.
+- **Response (200 OK - Authorized)**:
+  ```json
+  {
+    "roomId": "r1111111-1111-4111-8111-111111111111",
+    "roomNumber": "Room 11",
+    "buildingName": "Sunshine Heights",
+    "floorNumber": 1,
+    "occupancyStatus": "OCCUPIED",
+    "occupancyType": "DOUBLE",
+    "baseRentAmount": 10000.00,
+    "bathroomType": "PRIVATE_ATTACHED",
+    "toiletType": "PRIVATE_ATTACHED",
+    "activeTenants": [
+      {
+        "tenantId": "t1000000-0000-4000-8000-000000000010",
+        "fullName": "Ramesh Kumar",
+        "profilePhotoUrl": "https://r2.myroomledger.com/tenants/photo_ramesh.jpg",
+        "checkInDate": "2026-01-15",
+        "phoneNumber": "+919876543210"
+      }
+    ],
+    "roomRentLedger": {
+      "ledgerId": "l1111111-1111-4111-8111-111111111111",
+      "status": "PAID",
+      "amountDue": 10000.00,
+      "amountPaid": 10000.00
+    },
+    "electricityLedger": {
+      "ledgerId": "el111111-1111-4111-8111-111111111111",
+      "status": "PAID",
+      "unitsConsumed": 120,
+      "tariffRate": 8.00,
+      "amountDue": 960.00
+    }
+  }
+  ```
+- **Error Response (403 Forbidden - Tenant Access Restriction)**:
+  ```json
+  {
+    "statusCode": 403,
+    "error": "ROOM_ACCESS_DENIED",
+    "message": "Access denied. Tenants can only access the Room Details page for their assigned room.",
+    "timestamp": "2026-08-16T22:30:00Z",
+    "path": "/api/v1/rooms/r9999999-9999-4999-8999-999999999999/details"
+  }
+  ```
+
 ### `POST /api/v1/buildings/{buildingId}/switch-power-supplier`
 - **Access**: `LANDLORD` (Own Buildings) | `ADMIN` | `SUPER_ADMIN`
 - **Purpose**: Switch a building's power supply company and connection number. Enforces Zero Open Dues rule.

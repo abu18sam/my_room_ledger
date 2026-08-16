@@ -284,6 +284,40 @@ stateDiagram-v2
 
 ---
 
+### 4.4 Building, Floor & Room Occupancy Hierarchy & Navigation Workflow
+Governs dynamic active-tenant-based structural occupancy calculation and hierarchical navigation (`BR-17`, `FR-119`–`FR-130`). Detailed in [`docs/building-occupancy.md`](building-occupancy.md) (Occupancy domain rules) and [`docs/frontend-navigation.md`](frontend-navigation.md) (UI presentation & responsive navigation).
+
+```mermaid
+stateDiagram-v2
+    [*] --> VACANT : 0 Active Assigned Tenants
+    VACANT --> OCCUPIED : Active Tenant Assigned (Tenant.status = ACTIVE)
+    OCCUPIED --> OCCUPIED : Additional Active Tenant Assigned
+    OCCUPIED --> OCCUPIED : Co-Tenant Checks Out (Active Tenants >= 1)
+    OCCUPIED --> VACANT : All Active Tenants Check Out / Deactivated
+```
+
+#### Navigation Hierarchy & Access Guard Flow
+
+```mermaid
+graph TD
+    B[Building Details - Stacked Floor View] -->|Click Floor Card| F[Floor Details - Room Block Cards]
+    F -->|Click Room Block| R[Room Details - Metadata & Ledgers]
+    R -->|Click Active Tenant Card| T[Individual Tenant Details Page]
+
+    subgraph "Tenant RBAC Guard Isolation"
+    TenantUser[Logged-in Tenant Role User] -->|Request Room/Tenant Details| Guard[TenantRoomAccessGuard]
+    Guard -->|roomId == Tenant.currentRoomId| Allow[Access Granted to Assigned Room]
+    Guard -->|roomId != Tenant.currentRoomId| Deny[HTTP 403 FORBIDDEN - Access Denied]
+    end
+```
+
+#### Transition Invariants & Guard Rules
+* **Active Derivation Rule:** Occupancy status is derived dynamically from currently assigned active tenants (`Tenant.status = ACTIVE`). Historical tenant records (`TenancyHistory`) do NOT keep a room marked as occupied.
+* **Structural Aggregation:** A floor is `OCCUPIED` if $\ge 1$ room is occupied; `VACANT` if all rooms are vacant. A building is `OCCUPIED` if $\ge 1$ room across any floor is occupied; `VACANT` if all rooms are vacant.
+* **Tenant Isolation Guard:** NestJS `TenantRoomAccessGuard` strictly enforces that `TENANT` users can ONLY access the Room Details page of their assigned room (`Tenant.currentRoomId`). Attempts to access unassigned rooms, floors, or buildings are rejected with `HTTP 403 FORBIDDEN`.
+
+---
+
 ## 5. Traceability Map (Domain Entity → Requirement ID)
 
 All domain entities and state machines map back to the requirements and core business rules:
@@ -292,6 +326,7 @@ All domain entities and state machines map back to the requirements and core bus
 |---|---|---|---|---|
 | **Access Control** | `User`, `UserSession` | `BR-01`, `BR-16.5` | `FR-01` – `FR-08` | `NFR-01`, `NFR-04` |
 | **Country Codes** | `CountryCode` | `BR-12.1` – `BR-12.5` | `FR-01f`, `FR-35a` – `FR-35f` | `NFR-25` |
+| **Occupancy & Stack Navigation** | `Building`, `Floor`, `Room`, `Tenant` | `BR-17.1` – `BR-17.5` | `FR-119` – `FR-130` | `NFR-26` |
 | **Asset Hierarchy** | `Building`, `Floor`, `Room` | `BR-05`, `BR-06`, `BR-07` | `FR-22` – `FR-28` | `NFR-11` |
 | **Tenancy Lifecycle** | `Tenant`, `TenancyHistory` | `BR-08` | `FR-30` – `FR-35` | `NFR-07` |
 | **Rent Billing** | `RoomRentLedger` | `BR-03.4`, `BR-14.2` | `FR-36` – `FR-42` | `NFR-08`, `NFR-09` |

@@ -382,6 +382,7 @@ model Tenant {
   billingSnapshots BillingCycleTenantsSnapshot[]
 
   @@index([currentRoomId])
+  @@index([currentRoomId, status])
   @@map("tenants")
 }
 

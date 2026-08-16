@@ -41,6 +41,8 @@ Requirement (FR-xx/NFR-xx) → Acceptance criteria (AC-xx.y) → Design decision
 | [acceptance-criteria.md](acceptance-criteria.md) | Stage 02 (companion) | Confirmed |
 | [03-non-functional-requirements.md](03-non-functional-requirements.md) | Stage 03 | Confirmed |
 | [04-domain-model.md](04-domain-model.md) | Stage 04 | Under Review (Pending Confirmation) |
+| [building-occupancy.md](building-occupancy.md) | Stage 04 (companion) | Active — single source of truth for occupancy domain rules |
+| [frontend-navigation.md](frontend-navigation.md) | Stage 04 (companion) | Active — single source of truth for frontend UI/UX navigation |
 | [05-database-design.md](05-database-design.md) | Stage 05 | Pending |
 | [06-api-design.md](06-api-design.md) | Stage 06 | Pending |
 | [07-frontend-architecture.md](07-frontend-architecture.md) | Stage 07 | Pending |
